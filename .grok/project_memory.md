@@ -1,0 +1,50 @@
+- Prepared WEfold Brand Language Call Prep brief for Andy (designer) catch-up [2026-08-04]
+- Existing collaboration video: artifacts/WEfold_3A_Collaboration_35s.mp4 (35s vertical)
+- Core positioning and brand guidelines active from worldentire-video skill and AGENTS.md
+- Call intended Wed 5 Aug 2026 to brainstorm WEfold marketing language and assets
+- Key gap: public site still frames as “portable display system”; internal goal is new category of foldable large-format hardware with supply-chain benefits
+- Saved brief: artifacts/WEfold_Brand_Language_Call_Prep.docx [2026-08-04]
+- Saved language toolkit: artifacts/WEfold_Language_Toolkit.docx [2026-08-04] — contains one-page master language sheet, tightened A/B/C options, website hero samples, LinkedIn & social captions, decision guide
+- Created reseller info slides for Premiere: WEfold_Reseller_Slide_1080x1920.png (vertical) and WEfold_Reseller_Slide_1920x1080.png (landscape) [2026-08-04]
+- Slide uses Inter font family, subtle WorldEntire white logo, “Become a Reseller” + hello@worldentire.com, deep charcoal background for video use
+- Created WorldEntire Reels Safe-Zone Template: artifacts/WorldEntire_Reels_SafeZone_Template_9x16.png [2026-08-05]
+- 1080×1920 (9:16), light green safe content zone, top title zone, bottom extra-line/CTA zone, unsafe UI areas marked
+- Created cross-platform safe zone template: artifacts/WorldEntire_CrossPlatform_SafeZone_9x16.png [2026-08-05]
+- Universal margins: Top 220px, Bottom 450px, Sides 80px — works for TikTok + YouTube Shorts + Instagram Reels
+- Website language audited Aug 2026: “A new standard…”, “This is display, redefined.”, deploy-in-seconds, no tools, lightweight, patent-- WEfold partner: Stanbury Chameleon (Gosport) — carbon-balanced print, large format & display, World Land Trust certified. Title cards Title_00/14/15/16 created [2026-09-08]
+- Product reality: indoor/commercial preferred; not long-term outdoor
+- Taglines in play: Precision. Portability. Presence. / Dream it. Deploy it.
+- Three language frameworks prepared for discussion: Category Creation, Performance First, Engineer-to-Engineer
+- Brand voice: precise, intelligent, practical; confident but helpful; engineer who wants customers to succeed
+- Always lead with core positioning; never sell “another display system”
+- Created WorldEntire Brand Bible: artifacts/WorldEntire_Brand_Bible.docx [2026-08-12] — comprehensive internal reference covering core positioning, voice, language frameworks A/B/C, product reality, visual system, safe zones, DPI guidance, partnership language, caption bank, and working rules
+- Amari Plastics collab title cards saved: Title_10_Amari_DisplayGrade_16x9.png / 9x16.png and Title_11_Amari_Premium_16x9.png / 9x16.png [2026-08-30]
+- Client-selected Amari lines: Display-grade plastics by Amari Plastics / UK’s leading supplier. Ready when you are. and Premium display materials by Amari Plastics / Broadest range. Local stock. Cut to size. [2026-08-30]
+- WElight is WorldEntire’s lightbox range: high-impact illuminated displays with in-house artwork design and precision print. Site line: “Showcase your brand in the very best light.” Sizes include 50×150, 100×100 counter, 100×200, 200×240, 300×240. [2026-09-07]
+- Official WElight lockup supplied as WElight-by-WorldEntire.pdf; white/black transparent lockups saved to artifacts/WElight_Lockup_White.png and WElight_Lockup_Black.png [2026-09-07]
+- WEexpo lockup supplied (WE icon + “expo” wordmark) as WEexpo-black.png / WEexpo-white.png — product language not yet published [2026-09-07]
+- Title cards saved: Title_12_WElight_* and Title_13_WEexpo_* in 9x16 + 16x9, solid + transparent, plus Lockup variants [2026-09-07]
+- WElight series copy used: “WElight by WorldEntire” / “High-impact lightbox displays” / “In-house design. Precision print. Premium finish.” [2026-09-07]
+- Ten 9:16 social ads saved to artifacts/Social_Ads/Ad_01–Ad_10 [2026-09-07]. Film-still letterbox system: title + rule + photo crop + footer + WorldEntire lockup. Mix of 4K KAPA still crop, official 3A board stack, and hybrid product plates (gallery WEfold, WElight, CNC Kent, compact fold, colour boards).
+- Official lockups filed in artifacts/Brand_Assets/ [2026-09-07]: World-Entire black/white + text, WE icon, WEexpo black/white, WElight lockup black/white.
+- Ads rebuilt to use official marks: Ad_06 title = WElight lockup; Ad_08 = WEexpo lockup + hall plate; mid WorldEntire lockup on material/gallery/presence/close. Compact board ad kept as Ad_11_Compact.png.
+- First live Stanbury orders recorded mid-Sep 2026: 2×2.4m WEfold, 2×2.0m WEfold, 1×2.4m carry bag, just over £1,300. End clients: TIAA (2.4m — “Clarity where it matters most” / “Doing right. Delivering more.”) and ACID job 2622 (WEfold-2000, 1380×2595mm with fold guides; v1 megaphone + lightbulb back, v2 flaming © + yellow membership back). Two new companies onboarded. [2026-09-16]
+- Live-jobs pack saved: artifacts/WEfold_First_Live_Jobs_Sales_Design.docx; Title_17/18; Social_Ads Ad_14–Ad_17; artwork + hybrid mockups in artifacts/Live_Jobs/. Mockups are hybrid (real artwork on generated environments), not install photography. [2026-09-16]
+- Stanbury site title cards saved: Title_19_Stanbury_Sustainable (Sustainable Print by Stanbury Chameleon / Fully Carbon Balanced. Creative Print. Responsibly Delivered.) and Title_20_Stanbury_Contact (Please get in touch / hello@sc-print.co.uk / 023 9258 9425) in 16x9 + 9x16 [2026-09-16]
+- Title-card standing rule from James: deliver overlay-ready PNG with transparent background (RGBA). Solid-black versions may exist as companions; default new title cards to transparent PNG for footage overlay [2026-09-16]
+- Transparent overlay set saved: Title_19_Stanbury_Sustainable_*_Transparent.png and Title_20_Stanbury_Contact_*_Transparent.png (16x9 + 9x16) [2026-09-16]
+- Title_21_Stanbury_Range saved (transparent PNG, 16x9 + 9x16): Sustainable Print by Stanbury Chameleon / Publications. Stationery. Marketing. Exhibition. Display. [2026-09-16]
+- Title_22_Reseller_Ask saved (transparent PNG, 16x9 + 9x16): Are you interested in being a reseller? / hello@worldentire.com [2026-09-17]
+- Pack zip saved: artifacts/WEfold_Title_Cards_16x9_9x16.zip — all Title_*.png split into 16x9/ and 9x16/ folders (63 files) [2026-09-17]
+- Fresh project brand pack saved: artifacts/WorldEntire_Brand_Pack.zip — lockups, title cards, safe zones, social ads, product photos, live jobs [2026-09-17]
+- New reseller prospect: Zoom Display Ltd (zoomdisplay.co.uk). Founded 2001. Portable / outdoor / modular exhibition specialists. In-house graphics in Stockport (Hazel Grove, SK7 4ER) + admin HQ Battlesbridge, Essex (SS11 7QX). 01245 325743 / enquiries@zoomdisplay.co.uk. Impact pop-up exclusive range, sail banners, digital kiosks, backlit. UK print + assembly. 4.9 reviews. [2026-09-16]
+- Mirage Display Ltd (miragedisplay.co.uk) is a sister trading name to Zoom Display: same Stockport production estate (Mirage Unit 11 / Zoom Unit 10, Marsland Street, Hazel Grove SK7 4ER), Mirage Ltd registered at Zoom’s Battlesbridge address (6A Tabrums Lane, SS11 7QX), near-identical site copy and Impact range claims. Contact: 0161 482 7997 / enquiries@miragedisplay.co.uk. Title cards Title_27–30 saved + WEfold_MirageDisplay_Title_Cards.zip. Differentiated tagline vs Zoom: Mirage = Printed in Stockport since 2001. In-house graphics. Built for the stand. Zoom kept: UK specialists since 2001. In-house print. Built to deploy. [2026-09-17]
+- Mirage Display reference stills packed: artifacts/MirageDisplay_Reference_Images.zip (10 install photos from miragedisplay.co.uk + @MirageDisplaylt). Distinct from Zoom pack: Rennicks Highways, Elite Dynamics Venice, UCAS Manchester, Leeds Trinity Clearing/Takeover, Newcastle, Datesand, Salford lanterns/ayble, Mitchell Powersystems. [2026-09-17]
+- Zoom Display reference stills packed: artifacts/ZoomDisplay_Reference_Images.zip (10 install/product photos from zoomdisplay.co.uk + @ZoomDisplay). Best AI-video refs: 08 UCAS ayble Liverpool, 09 University of Liverpool stand, 04 Macphie gazebos, 10 Bannerbow arches. [2026-09-17]
+- Zoom Display title cards saved Title_23–26 (9x16 + 16x9, solid + transparent): 23 Zoom Display / UK specialists since 2001. In-house print. Built to deploy. 24 Portable Display by Zoom Display / Banners. Pop-ups. Outdoor. Modular. Exhibition. 25 WEfold by WorldEntire × Zoom Display. 26 Contact enquiries@zoomdisplay.co.uk / 01245 325743 / zoomdisplay.co.uk. Zip: artifacts/WEfold_ZoomDisplay_Title_Cards.zip. Draft for Mario → Zoom Display review. [2026-09-17]
+- WEfold 2.4 Blender master saved: artifacts/WEfold_2.4_Master.blend (Blender 4.5 LTS). Do not send James this file — he runs 3.3.1. [2026-10-02]
+- James runs Blender 4.5 LTS on a 2019 Intel i9 Mac. Use the 4.5 master, not the 3.3.1 fallback. [2026-10-02]
+- WEfold 2.0 cut size from James: deployed height 2.0 m, thickness 5 mm, weight 2.6 kg, double-sided print area 5.6 m². Interpreted as a 1.4 m × 2.0 m sheet, four 350 mm faces, both sides. Master: artifacts/WEfold_2.0_Master.blend [2026-10-02]
+- Cutter 2000-Swed-5mm-CUTTER: two 587 mm panels, 26 mm hinge, creases at 1000 mm, curved end 440 mm deep at the hinge. Deployed file artifacts/WEfold_2.0_Deployed.blend folds those ends inward to one foot. [2026-10-02]
+- James will learn Blender view, render, and materials. Grok builds the object. Artwork must use a fixed cutter layout, not free placement. Full-height check: artifacts/WEfold_2.0_FullHeight.png. GitHub page design comes after the GLB is honest. [2026-10-02]
+- 360 studio is Cyc_360: seamless full cove, floor radius 6 m, inward normals, surround fills N/E/S/W plus overhead. Phone GLB: artifacts/WEfold_2.4_Studio.glb with viewer artifacts/WEfold_2.4_Studio_Viewer.html. Orbit stays inside white. [2026-10-02]
