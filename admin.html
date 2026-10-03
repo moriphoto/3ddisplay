@@ -11,16 +11,15 @@
     body { margin: 0; font-family: Helvetica, Arial, sans-serif; background: var(--paper); color: var(--ink); }
     main { display: grid; grid-template-columns: 320px minmax(0, 1fr); min-height: 100vh; }
     aside { padding: 18px; border-right: 1px solid var(--line); }
-    #stage { min-width: 0; }
-    model-viewer { width: 100%; height: 100vh; min-height: 520px; background: #f7f5f0; display: block; }
+    h1 { font-size: 20px; margin: 0 0 6px; }
     p { color: var(--mute); font-size: 13px; line-height: 1.4; }
     label { display: block; font-size: 12px; letter-spacing: 0.04em; margin: 12px 0 4px; }
     select, button, input { font: inherit; }
     select, button { width: 100%; padding: 8px 10px; border: 1px solid var(--line); background: white; border-radius: 8px; }
     button { margin-top: 8px; cursor: pointer; }
-    input[type="color"] { width: 100%; height: 36px; border: 1px solid var(--line); background: white; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    model-viewer { width: 100%; height: 100vh; min-height: 520px; background: #f7f5f0; }
+    #stage { min-width: 0; }
+    model-viewer { width: 100%; height: 100vh; min-height: 520px; background: #f7f5f0; display: block; }
     @media (max-width: 800px) {
       main { grid-template-columns: 1fr; }
       model-viewer { height: 62vh; }
@@ -31,7 +30,7 @@
   <main>
     <aside>
       <h1>Placement admin</h1>
-      <p>Choose a panel or the footer. Upload, flip, or rotate that area only. The rest of the sheet stays. Reset puts that side back.</p>
+      <p>Choose a panel or the footer. Upload, flip, or rotate that area only. Reset puts that side back.</p>
       <label>Side</label>
       <select id="side">
         <option value="Print_Back">Outside, Side A</option>
@@ -54,216 +53,12 @@
       <button id="swap" type="button">Swap left and right images</button>
       <button id="reset" type="button">Reset this side</button>
       <button id="download" type="button">Download the full page</button>
-      <button id="initiate" type="button">Save placement image</button>
       <p id="status">Editor starting.</p>
     </aside>
-    <div id="stage"><model-viewer id="board" src="WEfold_2.0_CPI7.glb" camera-controls touch-action="pan-y" shadow-intensity="0.4" environment-image="neutral" exposure="1" camera-orbit="32deg 78deg auto" min-camera-orbit="auto 78deg 90%" max-camera-orbit="auto 78deg 118%"></model-viewer></div>
+    <div id="stage">
+      <model-viewer id="board" src="WEfold_2.0_CPI7.glb" camera-controls touch-action="pan-y" shadow-intensity="0.4" environment-image="neutral" exposure="1" camera-orbit="32deg 78deg auto"></model-viewer>
+    </div>
   </main>
-  <script>
-    const board = document.querySelector("#board");
-    const status = document.querySelector("#status");
-    const bases = {};
-    const sheets = {};
-    const regions = {
-      left: { x: 0, y: 0, w: 0.5, h: 1 },
-      right: { x: 0.5, y: 0, w: 0.5, h: 1 },
-      footer: { x: 0, y: 0.8, w: 1, h: 0.2 }
-    };
-
-    function loadImage(src) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = src;
-      });
-    }
-    function sheetFrom(img) {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
-      canvas.getContext("2d").drawImage(img, 0, 0);
-      return canvas;
-    }
-
-    function paint(which, region, draw) {
-      const canvas = sheets[which];
-      const box = regions[region];
-      const x = box.x * canvas.width;
-      const y = box.y * canvas.height;
-      const w = box.w * canvas.width;
-      const h = box.h * canvas.height;
-      const ctx = canvas.getContext("2d");
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(x, y, w, h);
-      ctx.clip();
-      draw(ctx, x, y, w, h);
-      ctx.restore();
-    }
-
-    async function apply(which) {
-      if (!board.model) return;
-      const url = await new Promise((resolve) => sheets[which].toBlob((blob) => resolve(URL.createObjectURL(blob))));
-      const texture = await board.createTexture(url);
-      board.model.materials.forEach((mat) => {
-        if (mat.name === which) mat.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
-      });
-    }
-
-    Promise.all([loadImage("side-a.png"), loadImage("side-b.png")]).then(([a, b]) => {
-      bases.Print_Back = a;
-      bases.Print_Front = b;
-      sheets.Print_Back = sheetFrom(a);
-      sheets.Print_Front = sheetFrom(b);
-      status.textContent = "Board ready. Choose a panel or the footer.";
-    }).catch(() => { status.textContent = "The print files did not load. Refresh the page."; });
-
-    board.addEventListener("load", () => { status.textContent = "Board loaded. Choose a panel or the footer."; });
-
-    function side() { return document.querySelector("#side").value; }
-    function target() { return document.querySelector("#target").value; }
-    function targets() {
-      if (document.querySelector("#group").checked && target() !== "footer") return ["left", "right"];
-      return [target()];
-    }
-
-    document.querySelector("#file").onchange = (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-      const img = new Image();
-      img.onload = () => {
-        targets().forEach((region) => paint(side(), region, (ctx, x, y, w, h) => ctx.drawImage(img, x, y, w, h)));
-        apply(side());
-        status.textContent = file.name + " is on the " + target() + ".";
-      };
-      img.src = URL.createObjectURL(file);
-    };
-
-    document.querySelector("#flipH").onclick = () => {
-      targets().forEach((region) => paint(side(), region, (ctx, x, y, w, h) => {
-        const cut = sheets[side()].getContext("2d").getImageData(x, y, w, h);
-        const temp = document.createElement("canvas");
-        temp.width = w; temp.height = h;
-        temp.getContext("2d").putImageData(cut, 0, 0);
-        ctx.save();
-        ctx.translate(x + w, y);
-        ctx.scale(-1, 1);
-        ctx.drawImage(temp, 0, 0);
-        ctx.restore();
-      }));
-      apply(side());
-      status.textContent = "Flipped horizontal.";
-    };
-
-    function rotate(dir) {
-      targets().forEach((region) => {
-        const canvas = sheets[side()];
-        const box = regions[region];
-        const x = box.x * canvas.width;
-        const y = box.y * canvas.height;
-        const w = box.w * canvas.width;
-        const h = box.h * canvas.height;
-        const ctx = canvas.getContext("2d");
-        const cut = ctx.getImageData(x, y, w, h);
-        const temp = document.createElement("canvas");
-        temp.width = w;
-        temp.height = h;
-        temp.getContext("2d").putImageData(cut, 0, 0);
-        const turned = document.createElement("canvas");
-        turned.width = h;
-        turned.height = w;
-        const tctx = turned.getContext("2d");
-        tctx.translate(turned.width / 2, turned.height / 2);
-        tctx.rotate(dir * Math.PI / 2);
-        tctx.drawImage(temp, -w / 2, -h / 2);
-        ctx.drawImage(turned, x, y, w, h);
-      });
-      apply(side());
-      status.textContent = dir > 0 ? "Whole panel rotated clockwise." : "Whole panel rotated anti-clockwise.";
-    }
-    document.querySelector("#rotCw").onclick = () => rotate(1);
-    document.querySelector("#rotCcw").onclick = () => rotate(-1);
-
-    document.querySelector("#swap").onclick = () => {
-      const canvas = sheets[side()];
-      const left = regions.left;
-      const right = regions.right;
-      const ctx = canvas.getContext("2d");
-      const lw = left.w * canvas.width;
-      const lh = left.h * canvas.height;
-      const rx = right.x * canvas.width;
-      const leftData = ctx.getImageData(0, 0, lw, lh);
-      const rightData = ctx.getImageData(rx, 0, lw, lh);
-      ctx.putImageData(rightData, 0, 0);
-      ctx.putImageData(leftData, rx, 0);
-      apply(side());
-      status.textContent = "Left and right images swapped.";
-    };
-
-    document.querySelector("#reset").onclick = () => {
-      sheets[side()] = sheetFrom(bases[side()]);
-      apply(side());
-      status.textContent = "This side is reset.";
-    };
-
-    document.querySelector("#download").onclick = () => {
-      const outside = sheets.Print_Back.toDataURL("image/png");
-      const inside = sheets.Print_Front.toDataURL("image/png");
-      const page = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WEfold 2.0 — WorldEntire</title>
-<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
-<style>
-body{margin:0;background:#f4f1ea;color:#1c1c1c;font-family:Helvetica,Arial,sans-serif}
-main{max-width:520px;margin:0 auto;padding:22px 20px 28px}
-.mark{letter-spacing:.18em;font-size:12px;color:#6d6a64}
-h1{font-size:34px;line-height:1.05;margin:0 0 10px}
-.lead{font-size:16px;line-height:1.45}
-.specs{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;list-style:none;padding:0}
-.specs li{border-top:1px solid #e4dfd6;padding-top:8px}
-.specs span{display:block;color:#6d6a64;font-size:12px}
-model-viewer{width:100%;height:62vh;min-height:420px;background:#f7f5f0;border-radius:18px}
-</style></head><body><main>
-<div class="mark">WORLDENTIRE · WEFOLD 2.0</div>
-<h1>See it deployed.</h1>
-<p class="lead">A foldable large-format display. Two faces, one curved foot, no frame. Drag to turn it.</p>
-<ul class="specs">
-<li><strong>2.0 m</strong><span>Deployed height</span></li>
-<li><strong>5 mm</strong><span>Swedboard</span></li>
-<li><strong>2.6 kg</strong><span>Board weight</span></li>
-<li><strong>5.6 m²</strong><span>Double-sided print</span></li>
-</ul>
-<model-viewer id="board" src="https://moriphoto.github.io/3ddisplay/WEfold_2.0_CPI7.glb" camera-controls shadow-intensity="0.35" exposure="0.9" environment-image="neutral" camera-orbit="35deg 78deg auto"></model-viewer>
-<p>Drag to spin. Outside is Side A. Inside is Side B.</p>
-</main>
-<script type="module">
-const board = document.querySelector("#board");
-const outside = "${outside}";
-const inside = "${inside}";
-board.addEventListener("load", async () => {
-  const a = await board.createTexture(outside);
-  const b = await board.createTexture(inside);
-  board.model.materials.forEach((mat) => {
-    if (mat.name === "Print_Back") mat.pbrMetallicRoughness.baseColorTexture.setTexture(a);
-    if (mat.name === "Print_Front") mat.pbrMetallicRoughness.baseColorTexture.setTexture(b);
-  });
-});
-</` + `script></body></html>`;
-      const blob = new Blob([page], { type: "text/html" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "WEfold-2.0-viewer.html";
-      link.click();
-      status.textContent = "Full page downloaded. Send that file here and I will put it on GitHub.";
-    };
-    document.querySelector("#initiate").onclick = () => {
-      const link = document.createElement("a");
-      link.href = sheets[side()].toDataURL("image/png");
-      link.download = side() + "-placement.png";
-      link.click();
-      status.textContent = "Placement image saved. Send it here and I will push it to GitHub.";
-    };
-  </script>
+  <script src="admin.js"></script>
 </body>
 </html>
