@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WEfold placement admin</title>
+  <style>
+    :root { --paper: #f4f1ea; --ink: #1c1c1c; --mute: #6d6a64; --line: #e4dfd6; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Helvetica, Arial, sans-serif; background: var(--paper); color: var(--ink); }
+    main { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+    aside { padding: 18px; border-right: 1px solid var(--line); }
+    h1 { font-size: 20px; margin: 0 0 6px; }
+    p { color: var(--mute); font-size: 13px; line-height: 1.4; }
+    label { display: block; font-size: 12px; letter-spacing: 0.04em; margin: 12px 0 4px; }
+    select, button, input { font: inherit; }
+    select, button { width: 100%; padding: 8px 10px; border: 1px solid var(--line); background: white; border-radius: 8px; }
+    button { margin-top: 8px; cursor: pointer; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    canvas { width: 100%; height: 100vh; display: block; }
+    @media (max-width: 800px) {
+      main { grid-template-columns: 1fr; }
+      canvas { height: 62vh; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <aside>
+      <h1>Placement admin</h1>
+      <p>Choose a side, then flip or nudge until it matches the real board. This saves in this browser. No Netlify.</p>
+      <label>Side</label>
+      <select id="side">
+        <option value="A">Outside, Side A</option>
+        <option value="B">Inside, Side B</option>
+      </select>
+      <div class="row">
+        <button id="flipV" type="button">Flip vertical</button>
+        <button id="flipH" type="button">Flip horizontal</button>
+      </div>
+      <div class="row">
+        <button id="up" type="button">Nudge up</button>
+        <button id="down" type="button">Nudge down</button>
+      </div>
+      <div class="row">
+        <button id="left" type="button">Nudge left</button>
+        <button id="right" type="button">Nudge right</button>
+      </div>
+      <button id="swap" type="button">Swap the two faces</button>
+      <button id="copy" type="button">Copy the placement</button>
+      <p id="status">Drag to turn the board.</p>
+    </aside>
+    <canvas id="view"></canvas>
+  </main>
+  <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+    import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+
+    const canvas = document.querySelector("#view");
+    const status = document.querySelector("#status");
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#f7f5f0");
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50);
+    camera.position.set(1.6, 1.3, 1.8);
+    const controls = new OrbitControls(camera, canvas);
+    controls.target.set(0, 1, 0);
+    controls.enablePan = false;
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d4cc, 1.2));
+    const key = new THREE.DirectionalLight(0xffffff, 1.1);
+    key.position.set(2, 4, 3);
+    scene.add(key);
+
+    const saved = JSON.parse(localStorage.getItem("wefold-placement") || "{}");
+    const state = {
+      A: { flipV: false, flipH: false, x: 0, y: 0, swap: false, ...(saved.A || {}) },
+      B: { flipV: false, flipH: false, x: 0, y: 0, swap: false, ...(saved.B || {}) }
+    };
+    const textures = {};
+
+    function apply(name) {
+      const tex = textures[name];
+      if (!tex) return;
+      const s = state[name];
+      tex.center.set(0.5, 0.5);
+      tex.repeat.set(s.flipH ? -1 : 1, s.flipV ? -1 : 1);
+      tex.offset.set(s.x, s.y);
+      tex.needsUpdate = true;
+    }
+    function save() {
+      localStorage.setItem("wefold-placement", JSON.stringify(state));
+      status.textContent = "Saved in this browser.";
+    }
+    function current() { return document.querySelector("#side").value; }
+
+    new GLTFLoader().load("WEfold_2.0_CPI7.glb", (gltf) => {
+      gltf.scene.traverse((obj) => {
+        if (!obj.isMesh) return;
+        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+        mats.forEach((mat) => {
+          if (!mat.map) return;
+          const side = mat.name === "Print_Back" ? "A" : "B";
+          mat.map.colorSpace = THREE.SRGBColorSpace;
+          mat.map.wrapS = mat.map.wrapT = THREE.ClampToEdgeWrapping;
+          textures[side] = mat.map;
+          apply(side);
+        });
+      });
+      scene.add(gltf.scene);
+      status.textContent = "Outside is Side A. Inside is Side B.";
+    });
+
+    document.querySelector("#flipV").onclick = () => { state[current()].flipV = !state[current()].flipV; apply(current()); save(); };
+    document.querySelector("#flipH").onclick = () => { state[current()].flipH = !state[current()].flipH; apply(current()); save(); };
+    document.querySelector("#up").onclick = () => { state[current()].y += 0.02; apply(current()); save(); };
+    document.querySelector("#down").onclick = () => { state[current()].y -= 0.02; apply(current()); save(); };
+    document.querySelector("#left").onclick = () => { state[current()].x -= 0.02; apply(current()); save(); };
+    document.querySelector("#right").onclick = () => { state[current()].x += 0.02; apply(current()); save(); };
+    document.querySelector("#swap").onclick = () => {
+      const a = textures.A, b = textures.B;
+      textures.A = b; textures.B = a;
+      apply("A"); apply("B");
+      status.textContent = "Faces swapped for this view.";
+    };
+    document.querySelector("#copy").onclick = () => {
+      navigator.clipboard.writeText(JSON.stringify(state));
+      status.textContent = "Placement copied.";
+    };
+
+    function resize() {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    addEventListener("resize", resize);
+    resize();
+    renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+  </script>
+</body>
+</html>
