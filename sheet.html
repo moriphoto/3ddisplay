@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WEpopup 3D Display Board Viewer</title>
+  <style>
+    body { margin: 0; padding: 0; overflow: hidden; font-family: Helvetica, Arial, sans-serif; background: #ffffff; }
+    #canvas-container { width: 100vw; height: 100vh; }
+    #ui-panel {
+      position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.95);
+      padding: 20px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+      border: 1px solid rgba(0,0,0,0.06); width: 300px; z-index: 100;
+    }
+    h3 { margin: 0 0 4px; font-size: 15px; }
+    p.desc { margin: 0 0 14px; font-size: 11px; color: #666; line-height: 1.4; }
+    label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+    input[type="file"] { width: 100%; font-size: 11px; margin-bottom: 12px; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+  <div id="ui-panel">
+    <h3>WEfold 2.0</h3>
+    <p class="desc">Full sheet. Top 2000 mm on the faces. Bottom 530 mm on the foot.</p>
+    <label for="upload-a">Front sheet</label>
+    <input type="file" id="upload-a" accept="image/*,application/pdf">
+    <label for="upload-b">Inside sheet</label>
+    <input type="file" id="upload-b" accept="image/*,application/pdf">
+  </div>
+  <div id="canvas-container"></div>
+  <script>
+    const container = document.getElementById("canvas-container");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);
+    const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(1.8, 1.3, -2.6);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    container.appendChild(renderer.domElement);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(-0.25, 0.9, 0.25);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.82));
+    const key = new THREE.DirectionalLight(0xffffff, 0.55);
+    key.position.set(3, 5, -4);
+    scene.add(key);
+
+    const thickness = 0.005, panelWidth = 0.61, panelHeight = 2.0;
+    const MAIN_RATIO = 2000 / 2530, FOOTER_RATIO = 530 / 2530;
+    const matEdge = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.5 });
+    const matLeftFront = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.28 });
+    const matRightFront = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.28 });
+    const matUnderFoot = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35 });
+    const matLeftBack = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35 });
+    const matRightBack = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35 });
+    const matOverFoot = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.35 });
+
+    function setPanelUVs(geometry, isRightPanel) {
+      const uv = geometry.attributes.uv, pos = geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const v = (pos.getY(i) + panelHeight / 2) / panelHeight;
+        const u = isRightPanel ? (pos.getZ(i) + panelWidth / 2) / panelWidth : (pos.getX(i) + panelWidth / 2) / panelWidth;
+        uv.setXY(i, u, v);
+      }
+    }
+    function setFootUVs(geometry) {
+      const uv = geometry.attributes.uv, pos = geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) uv.setXY(i, (pos.getX(i) + panelWidth) / panelWidth, 1 - (pos.getY(i) / panelWidth));
+    }
+
+    const display = new THREE.Group();
+    const leftGeo = new THREE.BoxGeometry(panelWidth, panelHeight, thickness);
+    setPanelUVs(leftGeo, false);
+    const leftPanel = new THREE.Mesh(leftGeo, [matEdge, matEdge, matEdge, matEdge, matLeftBack, matLeftFront]);
+    leftPanel.position.set(-panelWidth / 2, panelHeight / 2 + thickness * 2, 0);
+    display.add(leftPanel);
+    const rightGeo = new THREE.BoxGeometry(thickness, panelHeight, panelWidth);
+    setPanelUVs(rightGeo, true);
+    const rightPanel = new THREE.Mesh(rightGeo, [matRightFront, matRightBack, matEdge, matEdge, matEdge, matEdge]);
+    rightPanel.position.set(0, panelHeight / 2 + thickness * 2, panelWidth / 2);
+    display.add(rightPanel);
+    const footShape = new THREE.Shape();
+    footShape.moveTo(0, 0);
+    footShape.lineTo(-panelWidth, 0);
+    footShape.absarc(0, 0, panelWidth, Math.PI, Math.PI / 2, true);
+    const footGeo = new THREE.ExtrudeGeometry(footShape, { depth: thickness, bevelEnabled: false });
+    setFootUVs(footGeo);
+    const underFoot = new THREE.Mesh(footGeo, [matUnderFoot, matEdge]);
+    underFoot.rotation.x = Math.PI / 2;
+    underFoot.position.set(0, thickness, 0);
+    const overFoot = new THREE.Mesh(footGeo, [matOverFoot, matEdge]);
+    overFoot.rotation.x = Math.PI / 2;
+    overFoot.position.set(0, thickness * 2, 0);
+    display.add(underFoot, overFoot);
+    scene.add(display);
+
+    function slice(file, front) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const w = img.width, h = img.height;
+          const half = (sx) => {
+            const canvas = document.createElement("canvas");
+            canvas.width = w * 0.5; canvas.height = h * MAIN_RATIO;
+            canvas.getContext("2d").drawImage(img, sx, 0, w * 0.5, h * MAIN_RATIO, 0, 0, canvas.width, canvas.height);
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.encoding = THREE.sRGBEncoding;
+            return tex;
+          };
+          const footer = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = w; canvas.height = h * FOOTER_RATIO;
+            canvas.getContext("2d").drawImage(img, 0, h * MAIN_RATIO, w, h * FOOTER_RATIO, 0, 0, canvas.width, canvas.height);
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.encoding = THREE.sRGBEncoding;
+            return tex;
+          };
+          if (front) {
+            matLeftFront.map = half(w * 0.5); matLeftFront.needsUpdate = true;
+            matRightFront.map = half(0); matRightFront.needsUpdate = true;
+            matUnderFoot.map = footer(); matUnderFoot.needsUpdate = true;
+          } else {
+            matLeftBack.map = half(0); matLeftBack.needsUpdate = true;
+            matRightBack.map = half(w * 0.5); matRightBack.needsUpdate = true;
+            matOverFoot.map = footer(); matOverFoot.needsUpdate = true;
+          }
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+    document.getElementById("upload-a").onchange = (e) => e.target.files[0] && slice(e.target.files[0], true);
+    document.getElementById("upload-b").onchange = (e) => e.target.files[0] && slice(e.target.files[0], false);
+    (function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); })();
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
