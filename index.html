@@ -32,7 +32,8 @@
     <input id="upload-b" type="file" accept="image/png,image/jpeg,application/pdf">
     <label for="job">Name</label>
     <input id="job" type="text" placeholder="CPI-2000" />
-    <button id="save" type="button">Download HTML</button>
+    <button id="save" type="button">Save version</button>
+    <p id="versions"></p>
     <p id="status">Drag to spin.</p>
   </div>
   <div id="view"></div>
@@ -249,21 +250,28 @@
     document.getElementById("save").onclick = async () => {
       const name = (document.getElementById("job").value || "WEfold-2.0").replace(/[^\w.-]+/g, "-");
       const page = await buildPage(name);
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(new Blob([page], { type: "text/html" }));
-      link.download = name + ".html";
-      link.click();
-      status.textContent = name + ".html downloaded.";
+      const win = window.open("", "_blank");
+      if (win) { win.document.open(); win.document.write(page); win.document.close(); }
+      status.textContent = "Saving " + name + ".";
+      const response = await fetch("/.netlify/functions/gallery", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, html: page }) });
+      const versions = JSON.parse(localStorage.getItem("wefold-versions") || "[]");
+      if (response.ok) {
+        const result = await response.json();
+        versions.unshift({ name, url: result.url });
+        status.textContent = "Saved. " + location.origin + result.url;
+      } else {
+        versions.unshift({ name, url: "" });
+        status.textContent = "Opened the version. Gallery save did not complete.";
+      }
+      localStorage.setItem("wefold-versions", JSON.stringify(versions.slice(0, 12)));
+      drawVersions();
     };
-    document.getElementById("publish").onclick = async () => {
-      const name = (document.getElementById("job").value || "WEfold-2.0").replace(/[^\w.-]+/g, "-");
-      status.textContent = "Saving to the gallery.";
-      const html = await buildPage(name);
-      const response = await fetch("/.netlify/functions/gallery", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, html }) });
-      if (!response.ok) { status.textContent = "Gallery save did not complete."; return; }
-      const result = await response.json();
-      status.textContent = "Saved. " + location.origin + result.url;
-    };
+    function drawVersions() {
+      const box = document.getElementById("versions");
+      const versions = JSON.parse(localStorage.getItem("wefold-versions") || "[]");
+      box.innerHTML = versions.map((item) => item.url ? "<a href='" + item.url + "' target='_blank'>" + item.name + "</a>" : item.name).join("<br>");
+    }
+    drawVersions();
     (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
     addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
   </script>
