@@ -1,21 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WEfold 2.0 sheet viewer</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WEfold 2.0</title>
   <style>
-    body { margin: 0; background: #f7f5f0; font-family: Helvetica, Arial, sans-serif; color: #1c1c1c; }
+    body { margin: 0; overflow: hidden; font-family: Helvetica, Arial, sans-serif; background: #fff; }
     #view { width: 100vw; height: 100vh; }
     #panel {
-      position: absolute; top: 16px; left: 16px; width: 280px; z-index: 2;
-      background: rgba(255,255,255,0.94); border: 1px solid #e4dfd6; border-radius: 12px; padding: 16px;
+      position: absolute; top: 16px; left: 16px; width: 300px; z-index: 2;
+      background: rgba(255,255,255,0.95); border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 12px; padding: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.08);
     }
-    h1 { font-size: 16px; margin: 0 0 4px; }
-    p { margin: 0 0 12px; font-size: 12px; color: #6d6a64; line-height: 1.4; }
+    h1 { margin: 0 0 4px; font-size: 15px; }
+    p { margin: 0 0 12px; font-size: 11px; color: #666; line-height: 1.4; }
     label { display: block; font-size: 11px; font-weight: 600; margin: 8px 0 4px; }
-    input { width: 100%; font-size: 12px; }
-    #status { margin-top: 10px; }
+    input, button { width: 100%; font: inherit; font-size: 12px; }
+    button { margin-top: 8px; padding: 8px; border: 1px solid #e4dfd6; background: #fff; border-radius: 8px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -23,124 +25,167 @@
 <body>
   <div id="panel">
     <h1>WEfold 2.0</h1>
-    <p>Front sheet stays on both front faces. Inside sheet stays on both inside faces. Bottom 530 mm goes on the foot.</p>
-    <label for="front">Front sheet</label>
-    <input id="front" type="file" accept="image/png,image/jpeg,application/pdf" />
-    <label for="inside">Inside sheet</label>
-    <input id="inside" type="file" accept="image/png,image/jpeg,application/pdf" />
+    <p>Front sheet on both front faces. Inside sheet on both inside faces. Bottom 530 mm on the foot.</p>
+    <label for="upload-a">Front sheet</label>
+    <input id="upload-a" type="file" accept="image/png,image/jpeg,application/pdf">
+    <label for="upload-b">Inside sheet</label>
+    <input id="upload-b" type="file" accept="image/png,image/jpeg,application/pdf">
+    <div class="row">
+      <button id="swap" type="button">Swap left and right</button>
+      <button id="flip" type="button">Flip horizontal</button>
+    </div>
+    <button id="reset" type="button">Reset</button>
     <p id="status">Drag to spin.</p>
   </div>
   <div id="view"></div>
   <script>
-    const FACE = 0.587, HINGE = 0.026, HEIGHT = 2.0, FOOT = 0.44, THICK = 0.005;
-    const MAIN = 2000 / 2530, FOOTER = 530 / 2530;
     const status = document.getElementById("status");
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf7f5f0);
-    const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.05, 30);
-    camera.position.set(1.5, 1.15, 1.7);
+    scene.background = new THREE.Color(0xffffff);
+    const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 100);
+    camera.position.set(1.8, 1.3, -2.6);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(innerWidth, innerHeight);
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
     renderer.outputEncoding = THREE.sRGBEncoding;
     document.getElementById("view").appendChild(renderer.domElement);
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 0.9, 0);
+    controls.target.set(-0.25, 0.9, 0.25);
     controls.enableDamping = true;
-    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
-    const key = new THREE.DirectionalLight(0xffffff, 0.45);
-    key.position.set(2, 4, 3);
+    controls.maxPolarAngle = Math.PI / 2 + 0.01;
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), new THREE.ShadowMaterial({ opacity: 0.06 }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.82));
+    const key = new THREE.DirectionalLight(0xffffff, 0.55);
+    key.position.set(3, 5, -4);
+    key.castShadow = true;
     scene.add(key);
+    scene.add(new THREE.DirectionalLight(0xffffff, 0.35).translateX(-4).translateY(3.5).translateZ(2));
 
-    function mat() { return new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.55, side: THREE.FrontSide }); }
-    const frontL = mat(), frontR = mat(), insideL = mat(), insideR = mat(), footL = mat(), footR = mat();
-    const edge = new THREE.MeshStandardMaterial({ color: 0xdedad2, roughness: 0.7 });
+    const thickness = 0.005, panelWidth = 0.61, panelHeight = 2.0;
+    const MAIN_RATIO = 2000 / 2530, FOOTER_RATIO = 530 / 2530;
+    const matEdge = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.5 });
+    const matLeftFront = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.28, metalness: 0.01 });
+    const matRightFront = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.28, metalness: 0.01 });
+    const matUnderFoot = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35 });
+    const matLeftBack = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35 });
+    const matRightBack = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35 });
+    const matOverFoot = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.35 });
+    let side = "front";
 
-    function panel(w, h, d, materials) {
-      const geo = new THREE.BoxGeometry(w, h, d);
-      geo.clearGroups();
-      const counts = [1, 1, 1, 1, 1, 1].map(() => geo.index.count / 6);
-      for (let i = 0; i < 6; i++) geo.addGroup(i * counts[i], counts[i], i);
-      return new THREE.Mesh(geo, materials);
+    function setPanelUVs(geometry, isRightPanel) {
+      const uv = geometry.attributes.uv, pos = geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const v = (pos.getY(i) + panelHeight / 2) / panelHeight;
+        const u = isRightPanel ? (pos.getZ(i) + panelWidth / 2) / panelWidth : (pos.getX(i) + panelWidth / 2) / panelWidth;
+        uv.setXY(i, u, v);
+      }
     }
-    const left = panel(FACE, HEIGHT, THICK, [edge, edge, edge, edge, frontL, insideL]);
-    left.position.set(-FACE / 2 - HINGE / 2, HEIGHT / 2, 0);
-    const right = panel(THICK, HEIGHT, FACE, [frontR, insideR, edge, edge, edge, edge]);
-    right.position.set(0, HEIGHT / 2, FACE / 2 + HINGE / 2);
-
-    function footMesh(material) {
-      const shape = new THREE.Shape();
-      shape.moveTo(0, 0);
-      shape.lineTo(FACE, 0);
-      shape.lineTo(0.08, FOOT);
-      shape.closePath();
-      const geo = new THREE.ExtrudeGeometry(shape, { depth: THICK, bevelEnabled: false });
-      return new THREE.Mesh(geo, [material, edge]);
+    function setFootUVs(geometry) {
+      const uv = geometry.attributes.uv, pos = geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) uv.setXY(i, (pos.getX(i) + panelWidth) / panelWidth, 1 - (pos.getY(i) / panelWidth));
     }
-    const footLeft = footMesh(footL);
-    footLeft.rotation.x = -Math.PI / 2;
-    footLeft.position.set(-FACE - HINGE / 2, 0.004, 0.02);
-    const footRight = footMesh(footR);
-    footRight.rotation.x = -Math.PI / 2;
-    footRight.rotation.z = -Math.PI / 2;
-    footRight.position.set(0.02, 0.008, HINGE / 2);
-    scene.add(left, right, footLeft, footRight);
+    const display = new THREE.Group();
+    const leftGeo = new THREE.BoxGeometry(panelWidth, panelHeight, thickness);
+    setPanelUVs(leftGeo, false);
+    const leftPanel = new THREE.Mesh(leftGeo, [matEdge, matEdge, matEdge, matEdge, matLeftBack, matLeftFront]);
+    leftPanel.position.set(-panelWidth / 2, panelHeight / 2 + thickness * 2, 0);
+    leftPanel.castShadow = true;
+    const rightGeo = new THREE.BoxGeometry(thickness, panelHeight, panelWidth);
+    setPanelUVs(rightGeo, true);
+    const rightPanel = new THREE.Mesh(rightGeo, [matRightFront, matRightBack, matEdge, matEdge, matEdge, matEdge]);
+    rightPanel.position.set(0, panelHeight / 2 + thickness * 2, panelWidth / 2);
+    rightPanel.castShadow = true;
+    const footShape = new THREE.Shape();
+    footShape.moveTo(0, 0);
+    footShape.lineTo(-panelWidth, 0);
+    footShape.absarc(0, 0, panelWidth, Math.PI, Math.PI / 2, true);
+    const footGeo = new THREE.ExtrudeGeometry(footShape, { depth: thickness, bevelEnabled: false });
+    setFootUVs(footGeo);
+    const underFoot = new THREE.Mesh(footGeo, [matUnderFoot, matEdge]);
+    underFoot.rotation.x = Math.PI / 2;
+    underFoot.position.set(0, thickness, 0);
+    const overFoot = new THREE.Mesh(footGeo, [matOverFoot, matEdge]);
+    overFoot.rotation.x = Math.PI / 2;
+    overFoot.position.set(0, thickness * 2, 0);
+    display.add(leftPanel, rightPanel, underFoot, overFoot);
+    scene.add(display);
 
+    function textureFrom(canvas, mirror) {
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.encoding = THREE.sRGBEncoding;
+      if (mirror) { tex.wrapS = THREE.RepeatWrapping; tex.repeat.x = -1; tex.offset.x = 1; }
+      return tex;
+    }
     function crop(img, sx, sy, sw, sh) {
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(2, sw); canvas.height = Math.max(2, sh);
       canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.encoding = THREE.sRGBEncoding;
-      tex.anisotropy = 8;
-      return tex;
+      return canvas;
     }
-    function applySheet(img, front) {
+    function place(img, isFront) {
       const w = img.width, h = img.height;
-      const faceH = h * MAIN, footH = h * FOOTER, half = w * 0.5;
-      const leftTex = crop(img, 0, 0, half, faceH);
-      const rightTex = crop(img, half, 0, half, faceH);
-      const footTex = crop(img, 0, faceH, w, footH);
-      if (front) {
-        frontL.map = leftTex; frontR.map = rightTex; footL.map = footTex;
-        frontL.needsUpdate = frontR.needsUpdate = footL.needsUpdate = true;
+      const left = crop(img, 0, 0, w * 0.5, h * MAIN_RATIO);
+      const right = crop(img, w * 0.5, 0, w * 0.5, h * MAIN_RATIO);
+      const footer = crop(img, 0, h * MAIN_RATIO, w, h * FOOTER_RATIO);
+      if (isFront) {
+        matLeftFront.map = textureFrom(right, true);
+        matRightFront.map = textureFrom(left, true);
+        matUnderFoot.map = textureFrom(footer, false);
+        matLeftFront.needsUpdate = matRightFront.needsUpdate = matUnderFoot.needsUpdate = true;
         status.textContent = "Front sheet is on both front faces.";
       } else {
-        insideL.map = leftTex; insideR.map = rightTex; footR.map = footTex;
-        insideL.needsUpdate = insideR.needsUpdate = footR.needsUpdate = true;
+        matLeftBack.map = textureFrom(left, false);
+        matRightBack.map = textureFrom(right, false);
+        matOverFoot.map = textureFrom(footer, false);
+        matLeftBack.needsUpdate = matRightBack.needsUpdate = matOverFoot.needsUpdate = true;
         status.textContent = "Inside sheet is on both inside faces.";
       }
     }
-    function read(file, front) {
+    function read(file, isFront) {
+      side = isFront ? "front" : "inside";
       status.textContent = "Reading the sheet.";
+      const go = (img) => place(img, isFront);
       if (file.type === "application/pdf") {
         const reader = new FileReader();
-        reader.onload = () => {
-          import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs").then((pdfjs) => {
-            pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
-            return pdfjs.getDocument({ data: reader.result }).promise;
-          }).then((pdf) => pdf.getPage(1)).then((page) => {
-            const view = page.getViewport({ scale: 1.4 });
-            const canvas = document.createElement("canvas");
-            canvas.width = view.width; canvas.height = view.height;
-            return page.render({ canvasContext: canvas.getContext("2d"), viewport: view }).promise.then(() => applySheet(canvas, front));
-          }).catch(() => { status.textContent = "That PDF could not be read."; });
-        };
+        reader.onload = () => import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs").then((pdfjs) => {
+          pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
+          return pdfjs.getDocument({ data: reader.result }).promise;
+        }).then((pdf) => pdf.getPage(1)).then((page) => {
+          const view = page.getViewport({ scale: 1.4 });
+          const canvas = document.createElement("canvas");
+          canvas.width = view.width; canvas.height = view.height;
+          return page.render({ canvasContext: canvas.getContext("2d"), viewport: view }).promise.then(() => go(canvas));
+        }).catch(() => { status.textContent = "That PDF could not be read."; });
         reader.readAsArrayBuffer(file);
         return;
       }
       const img = new Image();
-      img.onload = () => applySheet(img, front);
+      img.onload = () => go(img);
       img.src = URL.createObjectURL(file);
     }
-    document.getElementById("front").onchange = (e) => e.target.files[0] && read(e.target.files[0], true);
-    document.getElementById("inside").onchange = (e) => e.target.files[0] && read(e.target.files[0], false);
+    function pair() { return side === "front" ? [matLeftFront, matRightFront] : [matLeftBack, matRightBack]; }
+    document.getElementById("upload-a").onchange = (e) => e.target.files[0] && read(e.target.files[0], true);
+    document.getElementById("upload-b").onchange = (e) => e.target.files[0] && read(e.target.files[0], false);
+    document.getElementById("swap").onclick = () => {
+      const [a, b] = pair();
+      const hold = a.map; a.map = b.map; b.map = hold;
+      a.needsUpdate = b.needsUpdate = true;
+      status.textContent = "Left and right swapped.";
+    };
+    document.getElementById("flip").onclick = () => {
+      pair().forEach((m) => { if (!m.map) return; m.map.repeat.x *= -1; m.map.offset.x = m.map.repeat.x < 0 ? 1 : 0; m.map.needsUpdate = true; });
+      status.textContent = "Flipped horizontal.";
+    };
+    document.getElementById("reset").onclick = () => {
+      [matLeftFront, matRightFront, matLeftBack, matRightBack, matUnderFoot, matOverFoot].forEach((m) => { m.map = null; m.needsUpdate = true; });
+      status.textContent = "Reset.";
+    };
     (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
-    addEventListener("resize", () => {
-      camera.aspect = innerWidth / innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-    });
+    addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
   </script>
 </body>
 </html>
