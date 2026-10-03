@@ -152,10 +152,25 @@
   };
 
   document.querySelector("#download").onclick = function () {
+    var outside = sheets.Print_Back.toDataURL("image/png");
+    var inside = sheets.Print_Front.toDataURL("image/png");
+    var page = [
+      "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>",
+      "<title>WEfold 2.0</title>",
+      "<script type='module' src='https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js'></scr" + "ipt>",
+      "<style>body{margin:0;background:#f4f1ea;font-family:Helvetica,Arial,sans-serif;color:#1c1c1c}main{max-width:520px;margin:0 auto;padding:22px}h1{font-size:32px;margin:0 0 8px}.specs{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;list-style:none;padding:0}.specs span{display:block;color:#6d6a64;font-size:12px}model-viewer{width:100%;height:70vh;background:#f7f5f0;border-radius:18px}</style>",
+      "</head><body><main><p>WORLDENTIRE</p><h1>WEfold 2.0</h1><p>A foldable large-format display. Two faces, one curved foot, no frame.</p>",
+      "<ul class='specs'><li><strong>2.0 m</strong><span>Deployed height</span></li><li><strong>5 mm</strong><span>Swedboard</span></li><li><strong>2.6 kg</strong><span>Board weight</span></li><li><strong>5.6 m²</strong><span>Double-sided print</span></li></ul>",
+      "<model-viewer id='board' src='https://moriphoto.github.io/3ddisplay/WEfold_2.0_CPI7.glb' camera-controls shadow-intensity='0.35' exposure='0.9' environment-image='neutral'></model-viewer>",
+      "<p>Drag to spin.</p></main>",
+      "<script type='module'>const board=document.querySelector('#board');const outside='" + outside + "';const inside='" + inside + "';board.addEventListener('load',async()=>{const a=await board.createTexture(outside);const b=await board.createTexture(inside);board.model.materials.forEach(mat=>{if(mat.name==='Print_Back')mat.pbrMetallicRoughness.baseColorTexture.setTexture(a);if(mat.name==='Print_Front')mat.pbrMetallicRoughness.baseColorTexture.setTexture(b);});});</scr" + "ipt>",
+      "</body></html>"
+    ].join("");
+    var blob = new Blob([page], { type: "text/html" });
     var link = document.createElement("a");
-    link.href = sheets[side()].toDataURL("image/png");
-    link.download = "WEfold-placement.png";
+    link.href = URL.createObjectURL(blob);
+    link.download = "WEfold-2.0-spin.html";
     link.click();
-    status.textContent = "Placement image downloaded. Send it here and I will put it on GitHub.";
+    status.textContent = "Spinning page downloaded. Open that file to turn the board.";
   };
 })();
