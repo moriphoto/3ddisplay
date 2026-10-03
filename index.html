@@ -36,7 +36,8 @@
     </div>
     <label for="job">Name</label>
     <input id="job" type="text" placeholder="CPI-2000" />
-    <button id="save" type="button">Download HTML</button>
+    <button id="reset" type="button">Reset</button>
+    <button id="save" type="button">Publish to gallery</button>
     <p id="status">Drag to spin.</p>
   </div>
   <div id="view"></div>
@@ -49,6 +50,7 @@
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(innerWidth, innerHeight);
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setClearColor(0xffffff, 1);
     renderer.shadowMap.enabled = true;
     renderer.outputEncoding = THREE.sRGBEncoding;
     document.getElementById("view").appendChild(renderer.domElement);
@@ -185,7 +187,7 @@
       pair().forEach((m) => { if (!m.map) return; m.map.repeat.x *= -1; m.map.offset.x = m.map.repeat.x < 0 ? 1 : 0; m.map.needsUpdate = true; });
       status.textContent = "Flipped horizontal.";
     };
-    document.getElementById("save").onclick = () => {
+    document.getElementById("save").onclick = async () => {
       const name = (document.getElementById("job").value || "WEfold-2.0").replace(/[^\w.-]+/g, "-");
       const page = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>" + name + "</title>"
         + "<script src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'></scr" + "ipt>"
@@ -208,11 +210,11 @@
         + "const right=new THREE.Mesh(new THREE.BoxGeometry(thickness,panelHeight,panelWidth),[RF,RB,edge,edge,edge,edge]);right.position.set(0,panelHeight/2+thickness*2,panelWidth/2);"
         + "scene.add(left,right);(function loop(){requestAnimationFrame(loop);controls.update();renderer.render(scene,camera);})();"
         + "</scr" + "ipt></body></html>";
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(new Blob([page], { type: "text/html" }));
-      link.download = name + ".html";
-      link.click();
-      status.textContent = name + ".html downloaded.";
+      status.textContent = "Publishing.";
+      const response = await fetch("/.netlify/functions/gallery", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, html: page }) });
+      if (!response.ok) { status.textContent = "Publish did not complete."; return; }
+      const result = await response.json();
+      status.textContent = "Published. " + location.origin + result.url;
     };
     document.getElementById("reset").onclick = () => {
       [matLeftFront, matRightFront, matLeftBack, matRightBack, matUnderFoot, matOverFoot].forEach((m) => { m.map = null; m.needsUpdate = true; });
