@@ -76,11 +76,12 @@
     if (!file) return;
     var img = new Image();
     img.onload = function () {
-      targets().forEach(function (region) {
-        paint(side(), region, function (ctx, x, y, w, h) { ctx.drawImage(img, x, y, w, h); });
-      });
+      var canvas = sheets[side()];
+      var ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       apply(side());
-      status.textContent = file.name + " is on the " + target() + ".";
+      status.textContent = "Full sheet placed. Split at the centre.";
     };
     img.src = URL.createObjectURL(file);
   };
