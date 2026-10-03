@@ -55,7 +55,7 @@
         <button id="flipV" type="button">Flip vertical</button>
         <button id="flipH" type="button">Flip horizontal</button>
       </div>
-      <button id="swap" type="button">Swap left and right</button>
+      <button id="swap" type="button">Swap left and right images</button>
       <button id="copy" type="button">Copy the placement</button>
       <p id="status">Drag to turn the board.</p>
     </aside>
@@ -89,8 +89,8 @@
     const blank = () => ({ rot: 0, flipV: false, flipH: false, x: 0, y: 0 });
     const saved = JSON.parse(localStorage.getItem("wefold-placement-faces") || "{}");
     const state = {
-      A: { left: { ...blank(), ...(saved.A && saved.A.left) }, right: { ...blank(), ...(saved.A && saved.A.right) } },
-      B: { left: { ...blank(), ...(saved.B && saved.B.left) }, right: { ...blank(), ...(saved.B && saved.B.right) } }
+      A: { swapped: !!(saved.A && saved.A.swapped), left: { ...blank(), ...(saved.A && saved.A.left) }, right: { ...blank(), ...(saved.A && saved.A.right) } },
+      B: { swapped: !!(saved.B && saved.B.swapped), left: { ...blank(), ...(saved.B && saved.B.left) }, right: { ...blank(), ...(saved.B && saved.B.right) } }
     };
     const textures = { A: {}, B: {} };
 
@@ -101,7 +101,8 @@
       tex.center.set(0.5, 0.5);
       tex.rotation = s.rot;
       tex.repeat.set(s.flipH ? -1 : 1, s.flipV ? -1 : 1);
-      tex.offset.set(s.x, s.y);
+      const shift = state[side].swapped ? (panel === "left" ? 0.5 : -0.5) : 0;
+      tex.offset.set(s.x + shift, s.y);
       tex.needsUpdate = true;
     }
     function save() {
@@ -142,22 +143,12 @@
     document.querySelector("#right").onclick = () => { state[side()][panel()].x += 0.02; apply(side(), panel()); save(); };
     document.querySelector("#swap").onclick = () => {
       const s = side();
-      const left = textures[s].left;
-      const right = textures[s].right;
-      if (left && right) {
-        const image = left.image;
-        left.image = right.image;
-        right.image = image;
-        left.needsUpdate = true;
-        right.needsUpdate = true;
-      }
-      const hold = state[s].left;
-      state[s].left = state[s].right;
-      state[s].right = hold;
+      state[s].swapped = !state[s].swapped;
+      if (saved[s]) saved[s].swapped = state[s].swapped;
       apply(s, "left");
       apply(s, "right");
       save();
-      status.textContent = "Left and right images swapped.";
+      status.textContent = state[s].swapped ? "Left and right images swapped." : "Left and right images restored.";
     };
     document.querySelector("#copy").onclick = () => {
       navigator.clipboard.writeText(JSON.stringify(state));
