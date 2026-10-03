@@ -3,105 +3,144 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WEfold 2.0 — WorldEntire</title>
-  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+  <title>WEfold 2.0 sheet viewer</title>
   <style>
-    :root {
-      --paper: #f4f1ea;
-      --ink: #1c1c1c;
-      --mute: #6d6a64;
-      --line: #e4dfd6;
-      --panel: #f7f5f0;
+    body { margin: 0; background: #f7f5f0; font-family: Helvetica, Arial, sans-serif; color: #1c1c1c; }
+    #view { width: 100vw; height: 100vh; }
+    #panel {
+      position: absolute; top: 16px; left: 16px; width: 280px; z-index: 2;
+      background: rgba(255,255,255,0.94); border: 1px solid #e4dfd6; border-radius: 12px; padding: 16px;
     }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; background: var(--paper); color: var(--ink); }
-    body {
-      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-      max-width: 520px;
-      margin: 0 auto;
-      padding: 22px 20px 28px;
-    }
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 28px;
-    }
-    header img { height: 28px; width: auto; }
-    .mark { letter-spacing: 0.18em; font-size: 12px; color: var(--mute); }
-    .eyebrow {
-      margin: 0 0 8px;
-      font-size: 12px;
-      letter-spacing: 0.16em;
-      color: var(--mute);
-    }
-    h1 {
-      margin: 0 0 10px;
-      font-size: 34px;
-      line-height: 1.05;
-      font-weight: 650;
-      letter-spacing: -0.03em;
-    }
-    .lead {
-      margin: 0 0 18px;
-      font-size: 16px;
-      line-height: 1.45;
-      color: #2c2c2c;
-    }
-    .specs {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px 16px;
-      margin: 0 0 18px;
-      padding: 0;
-      list-style: none;
-    }
-    .specs li { border-top: 1px solid var(--line); padding-top: 8px; }
-    .specs strong { display: block; font-size: 15px; font-weight: 600; }
-    .specs span { font-size: 12px; color: var(--mute); letter-spacing: 0.04em; }
-    model-viewer {
-      width: 100%;
-      height: 62vh;
-      min-height: 420px;
-      background: var(--panel);
-      border-radius: 18px;
-      --poster-color: transparent;
-    }
-    .hint {
-      margin: 12px 0 0;
-      font-size: 13px;
-      color: var(--mute);
-    }
+    h1 { font-size: 16px; margin: 0 0 4px; }
+    p { margin: 0 0 12px; font-size: 12px; color: #6d6a64; line-height: 1.4; }
+    label { display: block; font-size: 11px; font-weight: 600; margin: 8px 0 4px; }
+    input { width: 100%; font-size: 12px; }
+    #status { margin-top: 10px; }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
-  <header>
-    <img src="worldentire.png" alt="WorldEntire" />
-    <div class="mark">2.0</div>
-  </header>
-  <p class="eyebrow">WEFOLD 2.0</p>
-  <h1>See it deployed.</h1>
-  <p class="lead">A foldable large-format display. Two faces, one curved foot, no frame. Drag to turn it.</p>
-  <ul class="specs">
-    <li><strong>2.0 m</strong><span>Deployed height</span></li>
-    <li><strong>5 mm</strong><span>Swedboard</span></li>
-    <li><strong>2.6 kg</strong><span>Board weight</span></li>
-    <li><strong>5.6 m²</strong><span>Double-sided print</span></li>
-  </ul>
-  <model-viewer
-    src="WEfold_2.0_Placed.glb"
-    camera-controls
-    disable-pan
-    interaction-prompt="none"
-    interpolation-decay="80"
-    min-camera-orbit="auto 70deg 100%"
-    max-camera-orbit="auto 85deg 112%"
-    camera-orbit="35deg 78deg auto"
-    shadow-intensity="0.35"
-    exposure="0.9"
-    environment-image="neutral"
-    alt="WEfold 2.0">
-  </model-viewer>
-  <p class="hint">Drag to spin. Pinch for a small zoom. Outside is Side A. Inside is Side B. 587 mm faces. Hinge 26 mm.</p>
+  <div id="panel">
+    <h1>WEfold 2.0</h1>
+    <p>Front sheet stays on both front faces. Inside sheet stays on both inside faces. Bottom 530 mm goes on the foot.</p>
+    <label for="front">Front sheet</label>
+    <input id="front" type="file" accept="image/png,image/jpeg,application/pdf" />
+    <label for="inside">Inside sheet</label>
+    <input id="inside" type="file" accept="image/png,image/jpeg,application/pdf" />
+    <p id="status">Drag to spin.</p>
+  </div>
+  <div id="view"></div>
+  <script>
+    const FACE = 0.587, HINGE = 0.026, HEIGHT = 2.0, FOOT = 0.44, THICK = 0.005;
+    const MAIN = 2000 / 2530, FOOTER = 530 / 2530;
+    const status = document.getElementById("status");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf7f5f0);
+    const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.05, 30);
+    camera.position.set(1.5, 1.15, 1.7);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    document.getElementById("view").appendChild(renderer.domElement);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0.9, 0);
+    controls.enableDamping = true;
+    scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+    const key = new THREE.DirectionalLight(0xffffff, 0.45);
+    key.position.set(2, 4, 3);
+    scene.add(key);
+
+    function mat() { return new THREE.MeshStandardMaterial({ color: 0xf4f1ea, roughness: 0.55, side: THREE.FrontSide }); }
+    const frontL = mat(), frontR = mat(), insideL = mat(), insideR = mat(), footL = mat(), footR = mat();
+    const edge = new THREE.MeshStandardMaterial({ color: 0xdedad2, roughness: 0.7 });
+
+    function panel(w, h, d, materials) {
+      const geo = new THREE.BoxGeometry(w, h, d);
+      geo.clearGroups();
+      const counts = [1, 1, 1, 1, 1, 1].map(() => geo.index.count / 6);
+      for (let i = 0; i < 6; i++) geo.addGroup(i * counts[i], counts[i], i);
+      return new THREE.Mesh(geo, materials);
+    }
+    const left = panel(FACE, HEIGHT, THICK, [edge, edge, edge, edge, frontL, insideL]);
+    left.position.set(-FACE / 2 - HINGE / 2, HEIGHT / 2, 0);
+    const right = panel(THICK, HEIGHT, FACE, [frontR, insideR, edge, edge, edge, edge]);
+    right.position.set(0, HEIGHT / 2, FACE / 2 + HINGE / 2);
+
+    function footMesh(material) {
+      const shape = new THREE.Shape();
+      shape.moveTo(0, 0);
+      shape.lineTo(FACE, 0);
+      shape.lineTo(0.08, FOOT);
+      shape.closePath();
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: THICK, bevelEnabled: false });
+      return new THREE.Mesh(geo, [material, edge]);
+    }
+    const footLeft = footMesh(footL);
+    footLeft.rotation.x = -Math.PI / 2;
+    footLeft.position.set(-FACE - HINGE / 2, 0.004, 0.02);
+    const footRight = footMesh(footR);
+    footRight.rotation.x = -Math.PI / 2;
+    footRight.rotation.z = -Math.PI / 2;
+    footRight.position.set(0.02, 0.008, HINGE / 2);
+    scene.add(left, right, footLeft, footRight);
+
+    function crop(img, sx, sy, sw, sh) {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(2, sw); canvas.height = Math.max(2, sh);
+      canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.anisotropy = 8;
+      return tex;
+    }
+    function applySheet(img, front) {
+      const w = img.width, h = img.height;
+      const faceH = h * MAIN, footH = h * FOOTER, half = w * 0.5;
+      const leftTex = crop(img, 0, 0, half, faceH);
+      const rightTex = crop(img, half, 0, half, faceH);
+      const footTex = crop(img, 0, faceH, w, footH);
+      if (front) {
+        frontL.map = leftTex; frontR.map = rightTex; footL.map = footTex;
+        frontL.needsUpdate = frontR.needsUpdate = footL.needsUpdate = true;
+        status.textContent = "Front sheet is on both front faces.";
+      } else {
+        insideL.map = leftTex; insideR.map = rightTex; footR.map = footTex;
+        insideL.needsUpdate = insideR.needsUpdate = footR.needsUpdate = true;
+        status.textContent = "Inside sheet is on both inside faces.";
+      }
+    }
+    function read(file, front) {
+      status.textContent = "Reading the sheet.";
+      if (file.type === "application/pdf") {
+        const reader = new FileReader();
+        reader.onload = () => {
+          import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs").then((pdfjs) => {
+            pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
+            return pdfjs.getDocument({ data: reader.result }).promise;
+          }).then((pdf) => pdf.getPage(1)).then((page) => {
+            const view = page.getViewport({ scale: 1.4 });
+            const canvas = document.createElement("canvas");
+            canvas.width = view.width; canvas.height = view.height;
+            return page.render({ canvasContext: canvas.getContext("2d"), viewport: view }).promise.then(() => applySheet(canvas, front));
+          }).catch(() => { status.textContent = "That PDF could not be read."; });
+        };
+        reader.readAsArrayBuffer(file);
+        return;
+      }
+      const img = new Image();
+      img.onload = () => applySheet(img, front);
+      img.src = URL.createObjectURL(file);
+    }
+    document.getElementById("front").onchange = (e) => e.target.files[0] && read(e.target.files[0], true);
+    document.getElementById("inside").onchange = (e) => e.target.files[0] && read(e.target.files[0], false);
+    (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+    addEventListener("resize", () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+  </script>
 </body>
 </html>
