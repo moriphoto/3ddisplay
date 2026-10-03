@@ -28,15 +28,20 @@
   <main>
     <aside>
       <h1>Placement admin</h1>
-      <p>Choose a side, then flip or nudge until it matches the real board. This saves in this browser. No Netlify.</p>
+      <p>Choose a side and a face. Rotate, flip, or nudge that face on its own. Swap moves the image to the other face. This saves in this browser.</p>
       <label>Side</label>
       <select id="side">
         <option value="A">Outside, Side A</option>
         <option value="B">Inside, Side B</option>
       </select>
+      <label>Panel</label>
+      <select id="panel">
+        <option value="left">Left face</option>
+        <option value="right">Right face</option>
+      </select>
       <div class="row">
-        <button id="flipV" type="button">Flip vertical</button>
-        <button id="flipH" type="button">Flip horizontal</button>
+        <button id="rotCw" type="button">Rotate clockwise</button>
+        <button id="rotCcw" type="button">Rotate anti-clockwise</button>
       </div>
       <div class="row">
         <button id="up" type="button">Nudge up</button>
@@ -46,7 +51,11 @@
         <button id="left" type="button">Nudge left</button>
         <button id="right" type="button">Nudge right</button>
       </div>
-      <button id="swap" type="button">Swap the two faces</button>
+      <div class="row">
+        <button id="flipV" type="button">Flip vertical</button>
+        <button id="flipH" type="button">Flip horizontal</button>
+      </div>
+      <button id="swap" type="button">Swap left and right</button>
       <button id="copy" type="button">Copy the placement</button>
       <p id="status">Drag to turn the board.</p>
     </aside>
@@ -77,56 +86,78 @@
     key.position.set(2, 4, 3);
     scene.add(key);
 
-    const saved = JSON.parse(localStorage.getItem("wefold-placement") || "{}");
+    const blank = () => ({ rot: 0, flipV: false, flipH: false, x: 0, y: 0 });
+    const saved = JSON.parse(localStorage.getItem("wefold-placement-faces") || "{}");
     const state = {
-      A: { flipV: false, flipH: false, x: 0, y: 0, swap: false, ...(saved.A || {}) },
-      B: { flipV: false, flipH: false, x: 0, y: 0, swap: false, ...(saved.B || {}) }
+      A: { left: { ...blank(), ...(saved.A && saved.A.left) }, right: { ...blank(), ...(saved.A && saved.A.right) } },
+      B: { left: { ...blank(), ...(saved.B && saved.B.left) }, right: { ...blank(), ...(saved.B && saved.B.right) } }
     };
-    const textures = {};
+    const textures = { A: {}, B: {} };
 
-    function apply(name) {
-      const tex = textures[name];
+    function apply(side, panel) {
+      const tex = textures[side][panel];
       if (!tex) return;
-      const s = state[name];
+      const s = state[side][panel];
       tex.center.set(0.5, 0.5);
+      tex.rotation = s.rot;
       tex.repeat.set(s.flipH ? -1 : 1, s.flipV ? -1 : 1);
       tex.offset.set(s.x, s.y);
       tex.needsUpdate = true;
     }
     function save() {
-      localStorage.setItem("wefold-placement", JSON.stringify(state));
+      localStorage.setItem("wefold-placement-faces", JSON.stringify(state));
       status.textContent = "Saved in this browser.";
     }
-    function current() { return document.querySelector("#side").value; }
+    function side() { return document.querySelector("#side").value; }
+    function panel() { return document.querySelector("#panel").value; }
 
     new GLTFLoader().load("WEfold_2.0_CPI7.glb", (gltf) => {
       gltf.scene.traverse((obj) => {
-        if (!obj.isMesh) return;
+        if (!obj.isMesh || !obj.name.startsWith("Panel_")) return;
+        const face = obj.name.startsWith("Panel_A") ? "left" : "right";
         const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-        mats.forEach((mat) => {
-          if (!mat.map) return;
-          const side = mat.name === "Print_Back" ? "A" : "B";
-          mat.map.colorSpace = THREE.SRGBColorSpace;
-          mat.map.wrapS = mat.map.wrapT = THREE.ClampToEdgeWrapping;
-          textures[side] = mat.map;
-          apply(side);
+        obj.material = mats.map((mat) => {
+          if (!mat.map) return mat;
+          const which = mat.name === "Print_Back" ? "A" : "B";
+          const clone = mat.clone();
+          clone.map = mat.map.clone();
+          clone.map.colorSpace = THREE.SRGBColorSpace;
+          clone.map.wrapS = clone.map.wrapT = THREE.RepeatWrapping;
+          textures[which][face] = clone.map;
+          apply(which, face);
+          return clone;
         });
       });
       scene.add(gltf.scene);
-      status.textContent = "Outside is Side A. Inside is Side B.";
+      status.textContent = "Left and right faces can now be moved on their own.";
     });
 
-    document.querySelector("#flipV").onclick = () => { state[current()].flipV = !state[current()].flipV; apply(current()); save(); };
-    document.querySelector("#flipH").onclick = () => { state[current()].flipH = !state[current()].flipH; apply(current()); save(); };
-    document.querySelector("#up").onclick = () => { state[current()].y += 0.02; apply(current()); save(); };
-    document.querySelector("#down").onclick = () => { state[current()].y -= 0.02; apply(current()); save(); };
-    document.querySelector("#left").onclick = () => { state[current()].x -= 0.02; apply(current()); save(); };
-    document.querySelector("#right").onclick = () => { state[current()].x += 0.02; apply(current()); save(); };
+    document.querySelector("#rotCw").onclick = () => { state[side()][panel()].rot -= Math.PI / 2; apply(side(), panel()); save(); };
+    document.querySelector("#rotCcw").onclick = () => { state[side()][panel()].rot += Math.PI / 2; apply(side(), panel()); save(); };
+    document.querySelector("#flipV").onclick = () => { state[side()][panel()].flipV = !state[side()][panel()].flipV; apply(side(), panel()); save(); };
+    document.querySelector("#flipH").onclick = () => { state[side()][panel()].flipH = !state[side()][panel()].flipH; apply(side(), panel()); save(); };
+    document.querySelector("#up").onclick = () => { state[side()][panel()].y += 0.02; apply(side(), panel()); save(); };
+    document.querySelector("#down").onclick = () => { state[side()][panel()].y -= 0.02; apply(side(), panel()); save(); };
+    document.querySelector("#left").onclick = () => { state[side()][panel()].x -= 0.02; apply(side(), panel()); save(); };
+    document.querySelector("#right").onclick = () => { state[side()][panel()].x += 0.02; apply(side(), panel()); save(); };
     document.querySelector("#swap").onclick = () => {
-      const a = textures.A, b = textures.B;
-      textures.A = b; textures.B = a;
-      apply("A"); apply("B");
-      status.textContent = "Faces swapped for this view.";
+      const s = side();
+      const left = textures[s].left;
+      const right = textures[s].right;
+      if (left && right) {
+        const image = left.image;
+        left.image = right.image;
+        right.image = image;
+        left.needsUpdate = true;
+        right.needsUpdate = true;
+      }
+      const hold = state[s].left;
+      state[s].left = state[s].right;
+      state[s].right = hold;
+      apply(s, "left");
+      apply(s, "right");
+      save();
+      status.textContent = "Left and right images swapped.";
     };
     document.querySelector("#copy").onclick = () => {
       navigator.clipboard.writeText(JSON.stringify(state));
