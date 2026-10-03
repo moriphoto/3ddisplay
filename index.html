@@ -30,13 +30,8 @@
     <input id="upload-a" type="file" accept="image/png,image/jpeg,application/pdf">
     <label for="upload-b">Inside sheet</label>
     <input id="upload-b" type="file" accept="image/png,image/jpeg,application/pdf">
-    <div class="row">
-      <button id="swap" type="button">Swap left and right</button>
-      <button id="flip" type="button">Flip horizontal</button>
-    </div>
     <label for="job">Name</label>
     <input id="job" type="text" placeholder="CPI-2000" />
-    <button id="reset" type="button">Reset</button>
     <button id="save" type="button">Publish to gallery</button>
     <p id="status">Drag to spin.</p>
   </div>
@@ -141,14 +136,16 @@
         matRightFront.map = textureFrom(left, true);
         matUnderFoot.map = textureFrom(footer, false);
         matLeftFront.needsUpdate = matRightFront.needsUpdate = matUnderFoot.needsUpdate = true;
-        saved.front = { left: left.toDataURL(), right: right.toDataURL(), foot: footer.toDataURL() };
+        saved.front = { left: jpeg(left), right: jpeg(right), foot: jpeg(footer) };
+        remember();
         status.textContent = "Front sheet is on both front faces.";
       } else {
         matLeftBack.map = textureFrom(left, false);
         matRightBack.map = textureFrom(right, false);
         matOverFoot.map = textureFrom(footer, false);
         matLeftBack.needsUpdate = matRightBack.needsUpdate = matOverFoot.needsUpdate = true;
-        saved.inside = { left: left.toDataURL(), right: right.toDataURL(), foot: footer.toDataURL() };
+        saved.inside = { left: jpeg(left), right: jpeg(right), foot: jpeg(footer) };
+        remember();
         status.textContent = "Inside sheet is on both inside faces.";
       }
     }
@@ -174,19 +171,43 @@
       img.onload = () => go(img);
       img.src = URL.createObjectURL(file);
     }
-    function pair() { return side === "front" ? [matLeftFront, matRightFront] : [matLeftBack, matRightBack]; }
+    function jpeg(canvas) {
+      const out = document.createElement("canvas");
+      const scale = Math.min(1, 1200 / canvas.width);
+      out.width = Math.max(2, Math.round(canvas.width * scale));
+      out.height = Math.max(2, Math.round(canvas.height * scale));
+      out.getContext("2d").drawImage(canvas, 0, 0, out.width, out.height);
+      return out.toDataURL("image/jpeg", 0.72);
+    }
+    function remember() { localStorage.setItem("wefold-last", JSON.stringify(saved)); }
+    function texUrl(url, mirror) {
+      if (!url) return null;
+      const tex = new THREE.TextureLoader().load(url);
+      tex.encoding = THREE.sRGBEncoding;
+      if (mirror) { tex.wrapS = THREE.RepeatWrapping; tex.repeat.x = -1; tex.offset.x = 1; }
+      return tex;
+    }
+    function showSaved(data) {
+      if (!data) return;
+      if (data.front) {
+        matLeftFront.map = texUrl(data.front.right, true);
+        matRightFront.map = texUrl(data.front.left, true);
+        matUnderFoot.map = texUrl(data.front.foot, false);
+        matLeftFront.needsUpdate = matRightFront.needsUpdate = matUnderFoot.needsUpdate = true;
+      }
+      if (data.inside) {
+        matLeftBack.map = texUrl(data.inside.left, false);
+        matRightBack.map = texUrl(data.inside.right, false);
+        matOverFoot.map = texUrl(data.inside.foot, false);
+        matLeftBack.needsUpdate = matRightBack.needsUpdate = matOverFoot.needsUpdate = true;
+      }
+      saved.front = data.front || saved.front;
+      saved.inside = data.inside || saved.inside;
+    }
+    try { showSaved(JSON.parse(localStorage.getItem("wefold-last") || "null")); } catch (e) {}
+    fetch("/.netlify/functions/gallery?id=latest-sheets").then((r) => r.json()).then(showSaved).catch(() => {});
     document.getElementById("upload-a").onchange = (e) => e.target.files[0] && read(e.target.files[0], true);
     document.getElementById("upload-b").onchange = (e) => e.target.files[0] && read(e.target.files[0], false);
-    document.getElementById("swap").onclick = () => {
-      const [a, b] = pair();
-      const hold = a.map; a.map = b.map; b.map = hold;
-      a.needsUpdate = b.needsUpdate = true;
-      status.textContent = "Left and right swapped.";
-    };
-    document.getElementById("flip").onclick = () => {
-      pair().forEach((m) => { if (!m.map) return; m.map.repeat.x *= -1; m.map.offset.x = m.map.repeat.x < 0 ? 1 : 0; m.map.needsUpdate = true; });
-      status.textContent = "Flipped horizontal.";
-    };
     document.getElementById("save").onclick = async () => {
       const name = (document.getElementById("job").value || "WEfold-2.0").replace(/[^\w.-]+/g, "-");
       const page = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>" + name + "</title>"
@@ -211,14 +232,10 @@
         + "scene.add(left,right);(function loop(){requestAnimationFrame(loop);controls.update();renderer.render(scene,camera);})();"
         + "</scr" + "ipt></body></html>";
       status.textContent = "Publishing.";
-      const response = await fetch("/.netlify/functions/gallery", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, html: page }) });
+      const response = await fetch("/.netlify/functions/gallery", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, html: page, sheets: saved }) });
       if (!response.ok) { status.textContent = "Publish did not complete."; return; }
       const result = await response.json();
       status.textContent = "Published. " + location.origin + result.url;
-    };
-    document.getElementById("reset").onclick = () => {
-      [matLeftFront, matRightFront, matLeftBack, matRightBack, matUnderFoot, matOverFoot].forEach((m) => { m.map = null; m.needsUpdate = true; });
-      status.textContent = "Reset.";
     };
     (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
     addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
