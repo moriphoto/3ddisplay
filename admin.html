@@ -54,11 +54,11 @@
       <button id="reset" type="button">Reset this side</button>
       <button id="download" type="button">Download the full page</button>
       <button id="initiate" type="button">Save placement image</button>
-      <p id="status">Ready.</p>
+      <p id="status">Editor starting.</p>
     </aside>
     <model-viewer id="board" src="WEfold_2.0_CPI7.glb" camera-controls touch-action="pan-y" shadow-intensity="0.4" environment-image="neutral" exposure="1" camera-orbit="32deg 78deg auto" min-camera-orbit="auto 78deg 90%" max-camera-orbit="auto 78deg 118%"></model-viewer>
   </main>
-  <script type="module">
+  <script>
     const board = document.querySelector("#board");
     const status = document.querySelector("#status");
     const bases = {};
