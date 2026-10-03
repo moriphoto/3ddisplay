@@ -9,9 +9,10 @@
     :root { --paper: #f4f1ea; --ink: #1c1c1c; --mute: #6d6a64; --line: #e4dfd6; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Helvetica, Arial, sans-serif; background: var(--paper); color: var(--ink); }
-    main { display: grid; grid-template-columns: 320px 1fr; min-height: 100vh; }
+    main { display: grid; grid-template-columns: 320px minmax(0, 1fr); min-height: 100vh; }
     aside { padding: 18px; border-right: 1px solid var(--line); }
-    h1 { font-size: 20px; margin: 0 0 6px; }
+    #stage { min-width: 0; }
+    model-viewer { width: 100%; height: 100vh; min-height: 520px; background: #f7f5f0; display: block; }
     p { color: var(--mute); font-size: 13px; line-height: 1.4; }
     label { display: block; font-size: 12px; letter-spacing: 0.04em; margin: 12px 0 4px; }
     select, button, input { font: inherit; }
@@ -56,7 +57,7 @@
       <button id="initiate" type="button">Save placement image</button>
       <p id="status">Editor starting.</p>
     </aside>
-    <model-viewer id="board" src="WEfold_2.0_CPI7.glb" camera-controls touch-action="pan-y" shadow-intensity="0.4" environment-image="neutral" exposure="1" camera-orbit="32deg 78deg auto" min-camera-orbit="auto 78deg 90%" max-camera-orbit="auto 78deg 118%"></model-viewer>
+    <div id="stage"><model-viewer id="board" src="WEfold_2.0_CPI7.glb" camera-controls touch-action="pan-y" shadow-intensity="0.4" environment-image="neutral" exposure="1" camera-orbit="32deg 78deg auto" min-camera-orbit="auto 78deg 90%" max-camera-orbit="auto 78deg 118%"></model-viewer></div>
   </main>
   <script>
     const board = document.querySelector("#board");
@@ -248,7 +249,7 @@ board.addEventListener("load", async () => {
     if (mat.name === "Print_Front") mat.pbrMetallicRoughness.baseColorTexture.setTexture(b);
   });
 });
-</script></body></html>`;
+</` + `script></body></html>`;
       const blob = new Blob([page], { type: "text/html" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
