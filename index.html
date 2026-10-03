@@ -34,7 +34,9 @@
       <button id="swap" type="button">Swap left and right</button>
       <button id="flip" type="button">Flip horizontal</button>
     </div>
-    <button id="reset" type="button">Reset</button>
+    <label for="job">Name</label>
+    <input id="job" type="text" placeholder="CPI-2000" />
+    <button id="save" type="button">Download HTML</button>
     <p id="status">Drag to spin.</p>
   </div>
   <div id="view"></div>
@@ -126,6 +128,7 @@
       canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
       return canvas;
     }
+    const saved = { front: null, inside: null };
     function place(img, isFront) {
       const w = img.width, h = img.height;
       const left = crop(img, 0, 0, w * 0.5, h * MAIN_RATIO);
@@ -136,12 +139,14 @@
         matRightFront.map = textureFrom(left, true);
         matUnderFoot.map = textureFrom(footer, false);
         matLeftFront.needsUpdate = matRightFront.needsUpdate = matUnderFoot.needsUpdate = true;
+        saved.front = { left: left.toDataURL(), right: right.toDataURL(), foot: footer.toDataURL() };
         status.textContent = "Front sheet is on both front faces.";
       } else {
         matLeftBack.map = textureFrom(left, false);
         matRightBack.map = textureFrom(right, false);
         matOverFoot.map = textureFrom(footer, false);
         matLeftBack.needsUpdate = matRightBack.needsUpdate = matOverFoot.needsUpdate = true;
+        saved.inside = { left: left.toDataURL(), right: right.toDataURL(), foot: footer.toDataURL() };
         status.textContent = "Inside sheet is on both inside faces.";
       }
     }
@@ -179,6 +184,35 @@
     document.getElementById("flip").onclick = () => {
       pair().forEach((m) => { if (!m.map) return; m.map.repeat.x *= -1; m.map.offset.x = m.map.repeat.x < 0 ? 1 : 0; m.map.needsUpdate = true; });
       status.textContent = "Flipped horizontal.";
+    };
+    document.getElementById("save").onclick = () => {
+      const name = (document.getElementById("job").value || "WEfold-2.0").replace(/[^\w.-]+/g, "-");
+      const page = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>" + name + "</title>"
+        + "<script src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'></scr" + "ipt>"
+        + "<script src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'></scr" + "ipt>"
+        + "</head><body style='margin:0;background:#fff'><div id='view'></div><script>"
+        + "const saved=" + JSON.stringify(saved) + ";"
+        + "const scene=new THREE.Scene();scene.background=new THREE.Color(0xffffff);"
+        + "const camera=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,0.1,100);camera.position.set(1.8,1.3,-2.6);"
+        + "const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.outputEncoding=THREE.sRGBEncoding;document.getElementById('view').appendChild(renderer.domElement);"
+        + "const controls=new THREE.OrbitControls(camera,renderer.domElement);controls.target.set(-0.25,0.9,0.25);controls.enableDamping=true;"
+        + "scene.add(new THREE.AmbientLight(0xffffff,0.82));const key=new THREE.DirectionalLight(0xffffff,0.55);key.position.set(3,5,-4);scene.add(key);"
+        + "const thickness=0.005,panelWidth=0.61,panelHeight=2;"
+        + "function tex(url,mirror){if(!url)return null;const t=new THREE.TextureLoader().load(url);t.encoding=THREE.sRGBEncoding;if(mirror){t.wrapS=THREE.RepeatWrapping;t.repeat.x=-1;t.offset.x=1;}return t;}"
+        + "const LF=new THREE.MeshStandardMaterial({map:tex(saved.front&&saved.front.right,true),roughness:0.28});"
+        + "const RF=new THREE.MeshStandardMaterial({map:tex(saved.front&&saved.front.left,true),roughness:0.28});"
+        + "const LB=new THREE.MeshStandardMaterial({map:tex(saved.inside&&saved.inside.left,false),roughness:0.35});"
+        + "const RB=new THREE.MeshStandardMaterial({map:tex(saved.inside&&saved.inside.right,false),roughness:0.35});"
+        + "const edge=new THREE.MeshStandardMaterial({color:0xf5f5f5,roughness:0.5});"
+        + "const left=new THREE.Mesh(new THREE.BoxGeometry(panelWidth,panelHeight,thickness),[edge,edge,edge,edge,LB,LF]);left.position.set(-panelWidth/2,panelHeight/2+thickness*2,0);"
+        + "const right=new THREE.Mesh(new THREE.BoxGeometry(thickness,panelHeight,panelWidth),[RF,RB,edge,edge,edge,edge]);right.position.set(0,panelHeight/2+thickness*2,panelWidth/2);"
+        + "scene.add(left,right);(function loop(){requestAnimationFrame(loop);controls.update();renderer.render(scene,camera);})();"
+        + "</scr" + "ipt></body></html>";
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(new Blob([page], { type: "text/html" }));
+      link.download = name + ".html";
+      link.click();
+      status.textContent = name + ".html downloaded.";
     };
     document.getElementById("reset").onclick = () => {
       [matLeftFront, matRightFront, matLeftBack, matRightBack, matUnderFoot, matOverFoot].forEach((m) => { m.map = null; m.needsUpdate = true; });
