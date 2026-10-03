@@ -32,7 +32,7 @@
     <input id="upload-b" type="file" accept="image/png,image/jpeg,application/pdf">
     <label for="job">Name</label>
     <input id="job" type="text" placeholder="CPI-2000" />
-    <button id="save" type="button">Publish to gallery</button>
+    <button id="save" type="button">Download HTML</button>
     <p id="status">Drag to spin.</p>
   </div>
   <div id="view"></div>
@@ -210,17 +210,22 @@
     document.getElementById("upload-b").onchange = (e) => e.target.files[0] && read(e.target.files[0], false);
     document.getElementById("save").onclick = async () => {
       const name = (document.getElementById("job").value || "WEfold-2.0").replace(/[^\w.-]+/g, "-");
+      const logo = await fetch("worldentire.png").then((r) => r.blob()).then((blob) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      })).catch(() => "");
       const page = "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>" + name + "</title>"
         + "<script src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'></scr" + "ipt>"
         + "<script src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'></scr" + "ipt>"
-        + "<style>body{margin:0;background:#f4f1ea;font-family:Helvetica,Arial,sans-serif;color:#1c1c1c}main{max-width:520px;margin:0 auto;padding:22px}p{letter-spacing:.14em;font-size:12px}h1{font-size:32px;margin:0 0 8px}ul{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;list-style:none;padding:0}li span{display:block;color:#6d6a64;font-size:12px}#view{height:70vh;background:#f7f5f0;border-radius:18px}</style>"
-        + "</head><body><main><p>WORLDENTIRE</p><h1>WEfold 2.0</h1><p style='letter-spacing:0'>" + name + "</p>"
+        + "<style>body{margin:0;background:#f4f1ea;font-family:Helvetica,Arial,sans-serif;color:#1c1c1c}main{display:grid;grid-template-columns:280px 1fr;min-height:100vh}aside{padding:28px}img{width:150px}h1{font-size:32px;margin:18px 0 8px}p{color:#6d6a64;line-height:1.4}ul{list-style:none;padding:0}li{margin:10px 0}li span{display:block;color:#6d6a64;font-size:12px}#view{height:100vh;background:#f7f5f0}@media(max-width:700px){main{grid-template-columns:1fr}#view{height:70vh}}</style>"
+        + "</head><body><main><aside><img src='" + logo + "' alt='WorldEntire'><h1>WEfold 2.0</h1><p>" + name + "</p>"
         + "<ul><li><strong>2.0 m</strong><span>Deployed height</span></li><li><strong>5 mm</strong><span>Board thickness</span></li><li><strong>2.6 kg</strong><span>Board weight</span></li><li><strong>5.6 m²</strong><span>Double-sided print</span></li></ul>"
-        + "<div id='view'></div><p style='letter-spacing:0'>Drag to spin.</p></main><script>"
+        + "<p>Two faces. One curved foot. No frame.</p></aside><div id='view'></div></main><script>"
         + "const saved=" + JSON.stringify(saved) + ";"
         + "const scene=new THREE.Scene();scene.background=new THREE.Color(0xf7f5f0);"
-        + "const camera=new THREE.PerspectiveCamera(38,1,0.1,100);camera.position.set(1.8,1.3,-2.6);"
-        + "const view=document.getElementById('view');const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(view.clientWidth,view.clientHeight);renderer.outputEncoding=THREE.sRGBEncoding;view.appendChild(renderer.domElement);"
+        + "const view=document.getElementById('view');const camera=new THREE.PerspectiveCamera(38,view.clientWidth/view.clientHeight,0.1,100);camera.position.set(1.8,1.3,-2.6);"
+        + "const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(view.clientWidth,view.clientHeight);renderer.outputEncoding=THREE.sRGBEncoding;view.appendChild(renderer.domElement);"
         + "const controls=new THREE.OrbitControls(camera,renderer.domElement);controls.target.set(-0.25,0.9,0.25);controls.enableDamping=true;"
         + "scene.add(new THREE.AmbientLight(0xffffff,0.82));const key=new THREE.DirectionalLight(0xffffff,0.55);key.position.set(3,5,-4);scene.add(key);"
         + "const thickness=0.005,panelWidth=0.61,panelHeight=2;"
@@ -234,11 +239,11 @@
         + "const right=new THREE.Mesh(new THREE.BoxGeometry(thickness,panelHeight,panelWidth),[RF,RB,edge,edge,edge,edge]);right.position.set(0,panelHeight/2+thickness*2,panelWidth/2);"
         + "scene.add(left,right);(function loop(){requestAnimationFrame(loop);controls.update();renderer.render(scene,camera);})();"
         + "</scr" + "ipt></body></html>";
-      status.textContent = "Publishing.";
-      const response = await fetch("/.netlify/functions/gallery", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, html: page, sheets: saved }) });
-      if (!response.ok) { status.textContent = "Publish did not complete."; return; }
-      const result = await response.json();
-      status.textContent = "Published. " + location.origin + result.url;
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(new Blob([page], { type: "text/html" }));
+      link.download = name + ".html";
+      link.click();
+      status.textContent = name + ".html downloaded.";
     };
     (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
     addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
