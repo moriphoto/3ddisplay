@@ -8,7 +8,7 @@
     :root { --paper: #f4f1ea; --ink: #1c1c1c; --mute: #6d6a64; --line: #e4dfd6; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Helvetica, Arial, sans-serif; background: var(--paper); color: var(--ink); }
-    main { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+    main { display: grid; grid-template-columns: 300px 1fr; min-height: 100vh; }
     aside { padding: 18px; border-right: 1px solid var(--line); }
     h1 { font-size: 20px; margin: 0 0 6px; }
     p { color: var(--mute); font-size: 13px; line-height: 1.4; }
@@ -17,10 +17,11 @@
     select, button { width: 100%; padding: 8px 10px; border: 1px solid var(--line); background: white; border-radius: 8px; }
     button { margin-top: 8px; cursor: pointer; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    canvas { width: 100%; height: 100vh; display: block; }
+    #stage { min-height: 70vh; height: 100vh; }
+    canvas { width: 100%; height: 100%; display: block; }
     @media (max-width: 800px) {
       main { grid-template-columns: 1fr; }
-      canvas { height: 62vh; }
+      #stage { height: 62vh; min-height: 420px; }
     }
   </style>
 </head>
@@ -28,7 +29,7 @@
   <main>
     <aside>
       <h1>Placement admin</h1>
-      <p>Choose a side and a face. Rotate, flip, or nudge that face on its own. Swap moves the image to the other face. This saves in this browser.</p>
+      <p>Upload a print, then rotate, flip, or swap each face. Initiate saves the placement for GitHub. This page cannot write to GitHub by itself.</p>
       <label>Side</label>
       <select id="side">
         <option value="A">Outside, Side A</option>
@@ -39,9 +40,15 @@
         <option value="left">Left face</option>
         <option value="right">Right face</option>
       </select>
+      <label>Upload an image</label>
+      <input id="file" type="file" accept="image/png,image/jpeg" />
       <div class="row">
         <button id="rotCw" type="button">Rotate clockwise</button>
         <button id="rotCcw" type="button">Rotate anti-clockwise</button>
+      </div>
+      <div class="row">
+        <button id="flipV" type="button">Flip vertical</button>
+        <button id="flipH" type="button">Flip horizontal</button>
       </div>
       <div class="row">
         <button id="up" type="button">Nudge up</button>
@@ -51,15 +58,11 @@
         <button id="left" type="button">Nudge left</button>
         <button id="right" type="button">Nudge right</button>
       </div>
-      <div class="row">
-        <button id="flipV" type="button">Flip vertical</button>
-        <button id="flipH" type="button">Flip horizontal</button>
-      </div>
       <button id="swap" type="button">Swap left and right images</button>
-      <button id="copy" type="button">Copy the placement</button>
-      <p id="status">Drag to turn the board.</p>
+      <button id="initiate" type="button">Initiate for GitHub</button>
+      <p id="status">Loading the board.</p>
     </aside>
-    <canvas id="view"></canvas>
+    <div id="stage"><canvas id="view"></canvas></div>
   </main>
   <script type="importmap">
     { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
@@ -70,19 +73,20 @@
     import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
 
     const canvas = document.querySelector("#view");
+    const stage = document.querySelector("#stage");
     const status = document.querySelector("#status");
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#f7f5f0");
-    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50);
-    camera.position.set(1.6, 1.3, 1.8);
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.05, 50);
+    camera.position.set(1.8, 1.2, 2.2);
     const controls = new OrbitControls(camera, canvas);
     controls.target.set(0, 1, 0);
     controls.enablePan = false;
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d4cc, 1.2));
-    const key = new THREE.DirectionalLight(0xffffff, 1.1);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d4cc, 1.4));
+    const key = new THREE.DirectionalLight(0xffffff, 1.2);
     key.position.set(2, 4, 3);
     scene.add(key);
 
@@ -93,72 +97,110 @@
       B: { swapped: !!(saved.B && saved.B.swapped), left: { ...blank(), ...(saved.B && saved.B.left) }, right: { ...blank(), ...(saved.B && saved.B.right) } }
     };
     const textures = { A: {}, B: {} };
+    const uploads = { A: null, B: null };
 
-    function apply(side, panel) {
-      const tex = textures[side][panel];
+    function apply(which, face) {
+      const tex = textures[which][face];
       if (!tex) return;
-      const s = state[side][panel];
+      const s = state[which][face];
       tex.center.set(0.5, 0.5);
-      tex.rotation = s.rot;
+      tex.rotation = s.rot || 0;
       tex.repeat.set(s.flipH ? -1 : 1, s.flipV ? -1 : 1);
-      const shift = state[side].swapped ? (panel === "left" ? 0.5 : -0.5) : 0;
-      tex.offset.set(s.x + shift, s.y);
+      const shift = state[which].swapped ? (face === "left" ? 0.5 : -0.5) : 0;
+      tex.offset.set((s.x || 0) + shift, s.y || 0);
       tex.needsUpdate = true;
     }
     function save() {
       localStorage.setItem("wefold-placement-faces", JSON.stringify(state));
-      status.textContent = "Saved in this browser.";
     }
-    function side() { return document.querySelector("#side").value; }
-    function panel() { return document.querySelector("#panel").value; }
+    const which = () => document.querySelector("#side").value;
+    const face = () => document.querySelector("#panel").value;
+
+    function frame(root) {
+      const box = new THREE.Box3().setFromObject(root);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      controls.target.copy(center);
+      camera.position.set(center.x + size.x, center.y + size.y * 0.15, center.z + size.z * 1.6);
+      camera.lookAt(center);
+      controls.update();
+    }
 
     new GLTFLoader().load("WEfold_2.0_CPI7.glb", (gltf) => {
       gltf.scene.traverse((obj) => {
         if (!obj.isMesh || !obj.name.startsWith("Panel_")) return;
-        const face = obj.name.startsWith("Panel_A") ? "left" : "right";
+        const panel = obj.name.startsWith("Panel_A") ? "left" : "right";
         const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
         obj.material = mats.map((mat) => {
-          if (!mat.map) return mat;
-          const which = mat.name === "Print_Back" ? "A" : "B";
+          if (!mat || !mat.map) return mat;
+          const side = mat.name === "Print_Back" ? "A" : "B";
           const clone = mat.clone();
           clone.map = mat.map.clone();
           clone.map.colorSpace = THREE.SRGBColorSpace;
           clone.map.wrapS = clone.map.wrapT = THREE.RepeatWrapping;
-          textures[which][face] = clone.map;
-          apply(which, face);
+          textures[side][panel] = clone.map;
+          apply(side, panel);
           return clone;
         });
       });
       scene.add(gltf.scene);
-      status.textContent = "Left and right faces can now be moved on their own.";
+      frame(gltf.scene);
+      status.textContent = "Board loaded. Upload a PNG or JPG for the selected side.";
+    }, undefined, (err) => {
+      status.textContent = "The board file did not load. Refresh the page.";
+      console.error(err);
     });
 
-    document.querySelector("#rotCw").onclick = () => { state[side()][panel()].rot -= Math.PI / 2; apply(side(), panel()); save(); };
-    document.querySelector("#rotCcw").onclick = () => { state[side()][panel()].rot += Math.PI / 2; apply(side(), panel()); save(); };
-    document.querySelector("#flipV").onclick = () => { state[side()][panel()].flipV = !state[side()][panel()].flipV; apply(side(), panel()); save(); };
-    document.querySelector("#flipH").onclick = () => { state[side()][panel()].flipH = !state[side()][panel()].flipH; apply(side(), panel()); save(); };
-    document.querySelector("#up").onclick = () => { state[side()][panel()].y += 0.02; apply(side(), panel()); save(); };
-    document.querySelector("#down").onclick = () => { state[side()][panel()].y -= 0.02; apply(side(), panel()); save(); };
-    document.querySelector("#left").onclick = () => { state[side()][panel()].x -= 0.02; apply(side(), panel()); save(); };
-    document.querySelector("#right").onclick = () => { state[side()][panel()].x += 0.02; apply(side(), panel()); save(); };
-    document.querySelector("#swap").onclick = () => {
-      const s = side();
-      state[s].swapped = !state[s].swapped;
-      if (saved[s]) saved[s].swapped = state[s].swapped;
-      apply(s, "left");
-      apply(s, "right");
-      save();
-      status.textContent = state[s].swapped ? "Left and right images swapped." : "Left and right images restored.";
+    document.querySelector("#file").onchange = (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const side = which();
+      new THREE.TextureLoader().load(url, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        ["left", "right"].forEach((panel) => {
+          const current = textures[side][panel];
+          if (!current) return;
+          current.image = tex.image;
+          current.needsUpdate = true;
+          apply(side, panel);
+        });
+        uploads[side] = file.name;
+        status.textContent = file.name + " is on " + (side === "A" ? "the outside" : "the inside") + ".";
+      });
     };
-    document.querySelector("#copy").onclick = () => {
-      navigator.clipboard.writeText(JSON.stringify(state));
-      status.textContent = "Placement copied.";
+
+    document.querySelector("#rotCw").onclick = () => { state[which()][face()].rot -= Math.PI / 2; apply(which(), face()); save(); };
+    document.querySelector("#rotCcw").onclick = () => { state[which()][face()].rot += Math.PI / 2; apply(which(), face()); save(); };
+    document.querySelector("#flipV").onclick = () => { state[which()][face()].flipV = !state[which()][face()].flipV; apply(which(), face()); save(); };
+    document.querySelector("#flipH").onclick = () => { state[which()][face()].flipH = !state[which()][face()].flipH; apply(which(), face()); save(); };
+    document.querySelector("#up").onclick = () => { state[which()][face()].y += 0.02; apply(which(), face()); save(); };
+    document.querySelector("#down").onclick = () => { state[which()][face()].y -= 0.02; apply(which(), face()); save(); };
+    document.querySelector("#left").onclick = () => { state[which()][face()].x -= 0.02; apply(which(), face()); save(); };
+    document.querySelector("#right").onclick = () => { state[which()][face()].x += 0.02; apply(which(), face()); save(); };
+    document.querySelector("#swap").onclick = () => {
+      state[which()].swapped = !state[which()].swapped;
+      apply(which(), "left");
+      apply(which(), "right");
+      save();
+      status.textContent = state[which()].swapped ? "Left and right images swapped." : "Left and right images restored.";
+    };
+    document.querySelector("#initiate").onclick = () => {
+      const payload = { placement: state, uploads };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "wefold-placement.json";
+      link.click();
+      save();
+      status.textContent = "Placement saved. Send that file here and I will push it to GitHub.";
     };
 
     function resize() {
-      const w = canvas.clientWidth, h = canvas.clientHeight;
+      const w = stage.clientWidth, h = stage.clientHeight;
       renderer.setSize(w, h, false);
-      camera.aspect = w / h;
+      camera.aspect = w / Math.max(h, 1);
       camera.updateProjectionMatrix();
     }
     addEventListener("resize", resize);
