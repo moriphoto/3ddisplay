@@ -50,13 +50,22 @@
       status.textContent = "The board is still loading.";
       return;
     }
-    sheets[which].toBlob(function (blob) {
-      var url = URL.createObjectURL(blob);
-      board.createTexture(url).then(function (texture) {
-        board.model.materials.forEach(function (mat) {
-          if (mat.name === which) mat.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
+    var pending = ["Print_Back", "Print_Front"].map(function (name) {
+      return new Promise(function (resolve) {
+        sheets[name].toBlob(function (blob) {
+          board.createTexture(URL.createObjectURL(blob)).then(function (texture) {
+            board.model.materials.forEach(function (mat) {
+              if (mat.name === name) mat.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
+            });
+            resolve();
+          });
         });
       });
+    });
+    Promise.all(pending).then(function () {
+      status.textContent = which === "Print_Back"
+        ? "Front sheet is on the left and right front faces only."
+        : "Inside sheet is on the left and right inside faces only.";
     });
   }
 
