@@ -208,14 +208,13 @@
     fetch("/.netlify/functions/gallery?id=latest-sheets").then((r) => r.json()).then(showSaved).catch(() => {});
     document.getElementById("upload-a").onchange = (e) => e.target.files[0] && read(e.target.files[0], true);
     document.getElementById("upload-b").onchange = (e) => e.target.files[0] && read(e.target.files[0], false);
-    document.getElementById("save").onclick = async () => {
-      const name = (document.getElementById("job").value || "WEfold-2.0").replace(/[^\w.-]+/g, "-");
+    async function buildPage(name) {
       const logo = await fetch("worldentire.png").then((r) => r.blob()).then((blob) => new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
         reader.readAsDataURL(blob);
       })).catch(() => "");
-      const page = "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>" + name + "</title>"
+      return "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>" + name + "</title>"
         + "<script src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'></scr" + "ipt>"
         + "<script src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'></scr" + "ipt>"
         + "<style>body{margin:0;background:#f4f1ea;font-family:Helvetica,Arial,sans-serif;color:#1c1c1c}main{display:grid;grid-template-columns:280px 1fr;min-height:100vh}aside{padding:28px}img{width:150px}h1{font-size:32px;margin:18px 0 8px}p{color:#6d6a64;line-height:1.4}ul{list-style:none;padding:0}li{margin:10px 0}li span{display:block;color:#6d6a64;font-size:12px}#view{height:100vh;background:#f7f5f0}@media(max-width:700px){main{grid-template-columns:1fr}#view{height:70vh}}</style>"
@@ -231,8 +230,8 @@
         + "scene.add(new THREE.AmbientLight(0xffffff,0.82));const key=new THREE.DirectionalLight(0xffffff,0.55);key.position.set(3,5,-4);key.castShadow=true;scene.add(key);const fill=new THREE.DirectionalLight(0xffffff,0.35);fill.position.set(-4,3.5,2);scene.add(fill);"
         + "const thickness=0.005,panelWidth=0.61,panelHeight=2;"
         + "function tex(url,mirror){if(!url)return null;const t=new THREE.TextureLoader().load(url);t.encoding=THREE.sRGBEncoding;if(mirror){t.wrapS=THREE.RepeatWrapping;t.repeat.x=-1;t.offset.x=1;}return t;}"
-        + "const LF=new THREE.MeshStandardMaterial({map:tex(saved.front&&saved.front.right,true),roughness:0.28});"
-        + "const RF=new THREE.MeshStandardMaterial({map:tex(saved.front&&saved.front.left,true),roughness:0.28});"
+        + "const LF=new THREE.MeshStandardMaterial({map:tex(saved.front&&saved.front.left,false),roughness:0.28});"
+        + "const RF=new THREE.MeshStandardMaterial({map:tex(saved.front&&saved.front.right,false),roughness:0.28});"
         + "const LB=new THREE.MeshStandardMaterial({map:tex(saved.inside&&saved.inside.left,false),roughness:0.35});"
         + "const RB=new THREE.MeshStandardMaterial({map:tex(saved.inside&&saved.inside.right,false),roughness:0.35});"
         + "const UF=new THREE.MeshStandardMaterial({map:tex(saved.front&&saved.front.foot,false),roughness:0.35});"
@@ -246,11 +245,24 @@
         + "const over=new THREE.Mesh(footGeo,[OF,edge]);over.rotation.x=Math.PI/2;over.position.set(0,thickness*2,0);"
         + "scene.add(left,right,under,over);(function loop(){requestAnimationFrame(loop);controls.update();renderer.render(scene,camera);})();"
         + "</scr" + "ipt></body></html>";
+    }
+    document.getElementById("save").onclick = async () => {
+      const name = (document.getElementById("job").value || "WEfold-2.0").replace(/[^\w.-]+/g, "-");
+      const page = await buildPage(name);
       const link = document.createElement("a");
       link.href = URL.createObjectURL(new Blob([page], { type: "text/html" }));
       link.download = name + ".html";
       link.click();
       status.textContent = name + ".html downloaded.";
+    };
+    document.getElementById("publish").onclick = async () => {
+      const name = (document.getElementById("job").value || "WEfold-2.0").replace(/[^\w.-]+/g, "-");
+      status.textContent = "Saving to the gallery.";
+      const html = await buildPage(name);
+      const response = await fetch("/.netlify/functions/gallery", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, html }) });
+      if (!response.ok) { status.textContent = "Gallery save did not complete."; return; }
+      const result = await response.json();
+      status.textContent = "Saved. " + location.origin + result.url;
     };
     (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
     addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
