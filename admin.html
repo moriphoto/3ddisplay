@@ -42,9 +42,7 @@
         <option value="right">Right panel only</option>
         <option value="footer">Footer</option>
       </select>
-      <label>Colour</label>
-      <input id="colour" type="color" value="#163a8a" />
-      <button id="applyColour" type="button">Apply colour to target</button>
+      <label><input id="group" type="checkbox" /> Group left and right panels</label>
       <label>Upload image</label>
       <input id="file" type="file" accept="image/png,image/jpeg" />
       <div class="row">
@@ -65,8 +63,8 @@
     const bases = {};
     const sheets = {};
     const regions = {
-      left: { x: 0, y: 0, w: 0.5, h: 0.8 },
-      right: { x: 0.5, y: 0, w: 0.5, h: 0.8 },
+      left: { x: 0, y: 0, w: 0.5, h: 1 },
+      right: { x: 0.5, y: 0, w: 0.5, h: 1 },
       footer: { x: 0, y: 0.8, w: 1, h: 0.2 }
     };
 
@@ -85,8 +83,10 @@
       canvas.getContext("2d").drawImage(img, 0, 0);
       return canvas;
     }
-    function side() { return document.querySelector("#side").value; }
-    function target() { return document.querySelector("#target").value; }
+    function targets() {
+      if (document.querySelector("#group").checked && target() !== "footer") return ["left", "right"];
+      return [target()];
+    }
 
     function paint(which, region, draw) {
       const canvas = sheets[which];
@@ -123,19 +123,19 @@
 
     board.addEventListener("load", () => { status.textContent = "Board loaded. Choose a panel or the footer."; });
 
-    document.querySelector("#applyColour").onclick = () => {
-      const colour = document.querySelector("#colour").value;
-      paint(side(), target(), (ctx, x, y, w, h) => { ctx.fillStyle = colour; ctx.fillRect(x, y, w, h); });
-      apply(side());
-      status.textContent = "Colour applied.";
-    };
+    function side() { return document.querySelector("#side").value; }
+    function target() { return document.querySelector("#target").value; }
+    function targets() {
+      if (document.querySelector("#group").checked && target() !== "footer") return ["left", "right"];
+      return [target()];
+    }
 
     document.querySelector("#file").onchange = (event) => {
       const file = event.target.files[0];
       if (!file) return;
       const img = new Image();
       img.onload = () => {
-        paint(side(), target(), (ctx, x, y, w, h) => ctx.drawImage(img, x, y, w, h));
+        targets().forEach((region) => paint(side(), region, (ctx, x, y, w, h) => ctx.drawImage(img, x, y, w, h)));
         apply(side());
         status.textContent = file.name + " is on the " + target() + ".";
       };
@@ -143,7 +143,7 @@
     };
 
     document.querySelector("#flipH").onclick = () => {
-      paint(side(), target(), (ctx, x, y, w, h) => {
+      targets().forEach((region) => paint(side(), region, (ctx, x, y, w, h) => {
         const cut = sheets[side()].getContext("2d").getImageData(x, y, w, h);
         const temp = document.createElement("canvas");
         temp.width = w; temp.height = h;
@@ -153,25 +153,36 @@
         ctx.scale(-1, 1);
         ctx.drawImage(temp, 0, 0);
         ctx.restore();
-      });
+      }));
       apply(side());
       status.textContent = "Flipped horizontal.";
     };
 
     function rotate(dir) {
-      paint(side(), target(), (ctx, x, y, w, h) => {
-        const cut = sheets[side()].getContext("2d").getImageData(x, y, w, h);
+      targets().forEach((region) => {
+        const canvas = sheets[side()];
+        const box = regions[region];
+        const x = box.x * canvas.width;
+        const y = box.y * canvas.height;
+        const w = box.w * canvas.width;
+        const h = box.h * canvas.height;
+        const ctx = canvas.getContext("2d");
+        const cut = ctx.getImageData(x, y, w, h);
         const temp = document.createElement("canvas");
-        temp.width = w; temp.height = h;
+        temp.width = w;
+        temp.height = h;
         temp.getContext("2d").putImageData(cut, 0, 0);
-        ctx.save();
-        ctx.translate(x + w / 2, y + h / 2);
-        ctx.rotate(dir * Math.PI / 2);
-        ctx.drawImage(temp, -w / 2, -h / 2);
-        ctx.restore();
+        const turned = document.createElement("canvas");
+        turned.width = h;
+        turned.height = w;
+        const tctx = turned.getContext("2d");
+        tctx.translate(turned.width / 2, turned.height / 2);
+        tctx.rotate(dir * Math.PI / 2);
+        tctx.drawImage(temp, -w / 2, -h / 2);
+        ctx.drawImage(turned, x, y, w, h);
       });
       apply(side());
-      status.textContent = dir > 0 ? "Rotated clockwise." : "Rotated anti-clockwise.";
+      status.textContent = dir > 0 ? "Whole panel rotated clockwise." : "Whole panel rotated anti-clockwise.";
     }
     document.querySelector("#rotCw").onclick = () => rotate(1);
     document.querySelector("#rotCcw").onclick = () => rotate(-1);
