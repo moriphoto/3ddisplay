@@ -53,7 +53,7 @@
       <button id="swap" type="button">Swap left and right images</button>
       <button id="reset" type="button">Reset this side</button>
       <button id="initiate" type="button">Initiate for GitHub</button>
-      <p id="status">Loading the board.</p>
+      <p id="status">Ready.</p>
     </aside>
     <model-viewer id="board" src="WEfold_2.0_CPI7.glb" camera-controls touch-action="pan-y" shadow-intensity="0.4" environment-image="neutral" exposure="1" camera-orbit="32deg 78deg auto" min-camera-orbit="auto 78deg 90%" max-camera-orbit="auto 78deg 118%"></model-viewer>
   </main>
@@ -82,10 +82,6 @@
       canvas.height = img.height;
       canvas.getContext("2d").drawImage(img, 0, 0);
       return canvas;
-    }
-    function targets() {
-      if (document.querySelector("#group").checked && target() !== "footer") return ["left", "right"];
-      return [target()];
     }
 
     function paint(which, region, draw) {
