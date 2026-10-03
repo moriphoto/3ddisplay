@@ -162,7 +162,7 @@
       "<style>body{margin:0;background:#f4f1ea;font-family:Helvetica,Arial,sans-serif;color:#1c1c1c}main{max-width:520px;margin:0 auto;padding:22px}h1{font-size:32px;margin:0 0 8px}.specs{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;list-style:none;padding:0}.specs span{display:block;color:#6d6a64;font-size:12px}model-viewer{width:100%;height:70vh;background:#f7f5f0;border-radius:18px}</style>",
       "</head><body><main><p>WORLDENTIRE</p><h1>WEfold 2.0</h1><p>A foldable large-format display. Two faces, one curved foot, no frame.</p>",
       "<ul class='specs'><li><strong>2.0 m</strong><span>Deployed height</span></li><li><strong>5 mm</strong><span>Swedboard</span></li><li><strong>2.6 kg</strong><span>Board weight</span></li><li><strong>5.6 m²</strong><span>Double-sided print</span></li></ul>",
-      "<model-viewer id='board' src='https://moriphoto.github.io/3ddisplay/WEfold_2.0_CPI7.glb' camera-controls shadow-intensity='0.35' exposure='0.9' environment-image='neutral'></model-viewer>",
+      "<model-viewer id='board' src='https://moriphoto.github.io/3ddisplay/WEfold_2.0_CPI8.glb' camera-controls shadow-intensity='0.35' exposure='0.9' environment-image='neutral'></model-viewer>",
       "<p>Drag to spin.</p></main>",
       "<script type='module'>const board=document.querySelector('#board');const outside='" + outside + "';const inside='" + inside + "';board.addEventListener('load',async()=>{const a=await board.createTexture(outside);const b=await board.createTexture(inside);board.model.materials.forEach(mat=>{if(mat.name==='Print_Back')mat.pbrMetallicRoughness.baseColorTexture.setTexture(a);if(mat.name==='Print_Front')mat.pbrMetallicRoughness.baseColorTexture.setTexture(b);});});</scr" + "ipt>",
       "</body></html>"
