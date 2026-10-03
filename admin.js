@@ -71,18 +71,44 @@
     status.textContent = "The print files did not load. Refresh the page.";
   });
 
+  function placeImage(img) {
+    var canvas = sheets[side()];
+    var ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    apply(side());
+    status.textContent = "Full sheet placed. Split at the centre.";
+  }
+
   document.querySelector("#file").onchange = function (event) {
     var file = event.target.files[0];
     if (!file) return;
+    if (file.type === "application/pdf") {
+      status.textContent = "Reading the PDF.";
+      var reader = new FileReader();
+      reader.onload = function () {
+        import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs").then(function (pdfjs) {
+          pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
+          return pdfjs.getDocument({ data: reader.result }).promise;
+        }).then(function (pdf) {
+          return pdf.getPage(1);
+        }).then(function (page) {
+          var viewport = page.getViewport({ scale: 1.5 });
+          var canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          return page.render({ canvasContext: canvas.getContext("2d"), viewport: viewport }).promise.then(function () {
+            placeImage(canvas);
+          });
+        }).catch(function () {
+          status.textContent = "That PDF could not be read. Try a JPEG.";
+        });
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
     var img = new Image();
-    img.onload = function () {
-      var canvas = sheets[side()];
-      var ctx = canvas.getContext("2d");
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      apply(side());
-      status.textContent = "Full sheet placed. Split at the centre.";
-    };
+    img.onload = function () { placeImage(img); };
     img.src = URL.createObjectURL(file);
   };
 
