@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WEfold placement admin</title>
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
   <style>
     :root { --paper: #f4f1ea; --ink: #1c1c1c; --mute: #6d6a64; --line: #e4dfd6; }
     * { box-sizing: border-box; }
@@ -17,11 +18,10 @@
     select, button { width: 100%; padding: 8px 10px; border: 1px solid var(--line); background: white; border-radius: 8px; }
     button { margin-top: 8px; cursor: pointer; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    #stage { min-height: 70vh; height: 100vh; }
-    canvas { width: 100%; height: 100%; display: block; }
+    model-viewer { width: 100%; height: 100vh; min-height: 520px; background: #f7f5f0; }
     @media (max-width: 800px) {
       main { grid-template-columns: 1fr; }
-      #stage { height: 62vh; min-height: 420px; }
+      model-viewer { height: 62vh; }
     }
   </style>
 </head>
@@ -29,16 +29,11 @@
   <main>
     <aside>
       <h1>Placement admin</h1>
-      <p>Upload a print, then rotate, flip, or swap each face. Initiate saves the placement for GitHub. This page cannot write to GitHub by itself.</p>
+      <p>The board uses the same viewer as the public page. Upload a print, then rotate or flip the selected side. Swap exchanges the two faces of that side.</p>
       <label>Side</label>
       <select id="side">
-        <option value="A">Outside, Side A</option>
-        <option value="B">Inside, Side B</option>
-      </select>
-      <label>Panel</label>
-      <select id="panel">
-        <option value="left">Left face</option>
-        <option value="right">Right face</option>
+        <option value="Print_Back">Outside, Side A</option>
+        <option value="Print_Front">Inside, Side B</option>
       </select>
       <label>Upload an image</label>
       <input id="file" type="file" accept="image/png,image/jpeg" />
@@ -50,162 +45,88 @@
         <button id="flipV" type="button">Flip vertical</button>
         <button id="flipH" type="button">Flip horizontal</button>
       </div>
-      <div class="row">
-        <button id="up" type="button">Nudge up</button>
-        <button id="down" type="button">Nudge down</button>
-      </div>
-      <div class="row">
-        <button id="left" type="button">Nudge left</button>
-        <button id="right" type="button">Nudge right</button>
-      </div>
       <button id="swap" type="button">Swap left and right images</button>
       <button id="initiate" type="button">Initiate for GitHub</button>
       <p id="status">Loading the board.</p>
     </aside>
-    <div id="stage"><canvas id="view"></canvas></div>
+    <model-viewer id="board" src="WEfold_2.0_CPI7.glb" camera-controls touch-action="pan-y" shadow-intensity="0.4" environment-image="neutral" exposure="1" camera-orbit="32deg 78deg auto" min-camera-orbit="auto 78deg 90%" max-camera-orbit="auto 78deg 118%"></model-viewer>
   </main>
-  <script type="importmap">
-    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
-  </script>
   <script type="module">
-    import * as THREE from "three";
-    import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-    import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
-
-    const canvas = document.querySelector("#view");
-    const stage = document.querySelector("#stage");
+    const board = document.querySelector("#board");
     const status = document.querySelector("#status");
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#f7f5f0");
-    const camera = new THREE.PerspectiveCamera(35, 1, 0.05, 50);
-    camera.position.set(1.8, 1.2, 2.2);
-    const controls = new OrbitControls(camera, canvas);
-    controls.target.set(0, 1, 0);
-    controls.enablePan = false;
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d4cc, 1.4));
-    const key = new THREE.DirectionalLight(0xffffff, 1.2);
-    key.position.set(2, 4, 3);
-    scene.add(key);
-
-    const blank = () => ({ rot: 0, flipV: false, flipH: false, x: 0, y: 0 });
-    const saved = JSON.parse(localStorage.getItem("wefold-placement-faces") || "{}");
-    const state = {
-      A: { swapped: !!(saved.A && saved.A.swapped), left: { ...blank(), ...(saved.A && saved.A.left) }, right: { ...blank(), ...(saved.A && saved.A.right) } },
-      B: { swapped: !!(saved.B && saved.B.swapped), left: { ...blank(), ...(saved.B && saved.B.left) }, right: { ...blank(), ...(saved.B && saved.B.right) } }
+    const images = { Print_Back: null, Print_Front: null };
+    const place = {
+      Print_Back: { rot: 0, flipH: false, flipV: false, swapped: false },
+      Print_Front: { rot: 0, flipH: false, flipV: false, swapped: false }
     };
-    const textures = { A: {}, B: {} };
-    const uploads = { A: null, B: null };
 
-    function apply(which, face) {
-      const tex = textures[which][face];
-      if (!tex) return;
-      const s = state[which][face];
-      tex.center.set(0.5, 0.5);
-      tex.rotation = s.rot || 0;
-      tex.repeat.set(s.flipH ? -1 : 1, s.flipV ? -1 : 1);
-      const shift = state[which].swapped ? (face === "left" ? 0.5 : -0.5) : 0;
-      tex.offset.set((s.x || 0) + shift, s.y || 0);
-      tex.needsUpdate = true;
-    }
-    function save() {
-      localStorage.setItem("wefold-placement-faces", JSON.stringify(state));
-    }
-    const which = () => document.querySelector("#side").value;
-    const face = () => document.querySelector("#panel").value;
+    board.addEventListener("load", () => { status.textContent = "Board loaded. Upload a PNG or JPG."; });
+    board.addEventListener("error", () => { status.textContent = "The board file did not load. Refresh the page."; });
 
-    function frame(root) {
-      const box = new THREE.Box3().setFromObject(root);
-      const size = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
-      controls.target.copy(center);
-      camera.position.set(center.x + size.x, center.y + size.y * 0.15, center.z + size.z * 1.6);
-      camera.lookAt(center);
-      controls.update();
+    function side() { return document.querySelector("#side").value; }
+
+    function draw(which) {
+      const src = images[which];
+      if (!src) return Promise.resolve(null);
+      const s = place[which];
+      const canvas = document.createElement("canvas");
+      const portrait = src.height >= src.width;
+      canvas.width = portrait ? src.width : src.height;
+      canvas.height = portrait ? src.height : src.width;
+      const ctx = canvas.getContext("2d");
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(s.rot);
+      ctx.scale(s.flipH ? -1 : 1, s.flipV ? -1 : 1);
+      ctx.drawImage(src, -src.width / 2, -src.height / 2);
+      if (s.swapped) {
+        const half = document.createElement("canvas");
+        half.width = canvas.width;
+        half.height = canvas.height;
+        const h = half.getContext("2d");
+        h.drawImage(canvas, canvas.width / 2, 0, canvas.width / 2, canvas.height, 0, 0, canvas.width / 2, canvas.height);
+        h.drawImage(canvas, 0, 0, canvas.width / 2, canvas.height, canvas.width / 2, 0, canvas.width / 2, canvas.height);
+        return new Promise((resolve) => half.toBlob((blob) => resolve(URL.createObjectURL(blob))));
+      }
+      return new Promise((resolve) => canvas.toBlob((blob) => resolve(URL.createObjectURL(blob))));
     }
 
-    new GLTFLoader().load("WEfold_2.0_CPI7.glb", (gltf) => {
-      gltf.scene.traverse((obj) => {
-        if (!obj.isMesh || !obj.name.startsWith("Panel_")) return;
-        const panel = obj.name.startsWith("Panel_A") ? "left" : "right";
-        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-        obj.material = mats.map((mat) => {
-          if (!mat || !mat.map) return mat;
-          const side = mat.name === "Print_Back" ? "A" : "B";
-          const clone = mat.clone();
-          clone.map = mat.map.clone();
-          clone.map.colorSpace = THREE.SRGBColorSpace;
-          clone.map.wrapS = clone.map.wrapT = THREE.RepeatWrapping;
-          textures[side][panel] = clone.map;
-          apply(side, panel);
-          return clone;
-        });
+    async function apply(which) {
+      const url = await draw(which);
+      if (!url || !board.model) return;
+      const texture = await board.createTexture(url);
+      board.model.materials.forEach((mat) => {
+        if (mat.name === which) mat.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
       });
-      scene.add(gltf.scene);
-      frame(gltf.scene);
-      status.textContent = "Board loaded. Upload a PNG or JPG for the selected side.";
-    }, undefined, (err) => {
-      status.textContent = "The board file did not load. Refresh the page.";
-      console.error(err);
-    });
+    }
 
     document.querySelector("#file").onchange = (event) => {
       const file = event.target.files[0];
       if (!file) return;
-      const url = URL.createObjectURL(file);
-      const side = which();
-      new THREE.TextureLoader().load(url, (tex) => {
-        tex.colorSpace = THREE.SRGBColorSpace;
-        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-        ["left", "right"].forEach((panel) => {
-          const current = textures[side][panel];
-          if (!current) return;
-          current.image = tex.image;
-          current.needsUpdate = true;
-          apply(side, panel);
-        });
-        uploads[side] = file.name;
-        status.textContent = file.name + " is on " + (side === "A" ? "the outside" : "the inside") + ".";
-      });
+      const img = new Image();
+      img.onload = async () => {
+        images[side()] = img;
+        await apply(side());
+        status.textContent = file.name + " is on the selected side.";
+      };
+      img.src = URL.createObjectURL(file);
     };
-
-    document.querySelector("#rotCw").onclick = () => { state[which()][face()].rot -= Math.PI / 2; apply(which(), face()); save(); };
-    document.querySelector("#rotCcw").onclick = () => { state[which()][face()].rot += Math.PI / 2; apply(which(), face()); save(); };
-    document.querySelector("#flipV").onclick = () => { state[which()][face()].flipV = !state[which()][face()].flipV; apply(which(), face()); save(); };
-    document.querySelector("#flipH").onclick = () => { state[which()][face()].flipH = !state[which()][face()].flipH; apply(which(), face()); save(); };
-    document.querySelector("#up").onclick = () => { state[which()][face()].y += 0.02; apply(which(), face()); save(); };
-    document.querySelector("#down").onclick = () => { state[which()][face()].y -= 0.02; apply(which(), face()); save(); };
-    document.querySelector("#left").onclick = () => { state[which()][face()].x -= 0.02; apply(which(), face()); save(); };
-    document.querySelector("#right").onclick = () => { state[which()][face()].x += 0.02; apply(which(), face()); save(); };
+    document.querySelector("#rotCw").onclick = () => { place[side()].rot += Math.PI / 2; apply(side()); };
+    document.querySelector("#rotCcw").onclick = () => { place[side()].rot -= Math.PI / 2; apply(side()); };
+    document.querySelector("#flipV").onclick = () => { place[side()].flipV = !place[side()].flipV; apply(side()); };
+    document.querySelector("#flipH").onclick = () => { place[side()].flipH = !place[side()].flipH; apply(side()); };
     document.querySelector("#swap").onclick = () => {
-      state[which()].swapped = !state[which()].swapped;
-      apply(which(), "left");
-      apply(which(), "right");
-      save();
-      status.textContent = state[which()].swapped ? "Left and right images swapped." : "Left and right images restored.";
+      place[side()].swapped = !place[side()].swapped;
+      apply(side());
+      status.textContent = place[side()].swapped ? "Left and right images swapped." : "Left and right images restored.";
     };
     document.querySelector("#initiate").onclick = () => {
-      const payload = { placement: state, uploads };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const blob = new Blob([JSON.stringify(place, null, 2)], { type: "application/json" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = "wefold-placement.json";
       link.click();
-      save();
       status.textContent = "Placement saved. Send that file here and I will push it to GitHub.";
     };
-
-    function resize() {
-      const w = stage.clientWidth, h = stage.clientHeight;
-      renderer.setSize(w, h, false);
-      camera.aspect = w / Math.max(h, 1);
-      camera.updateProjectionMatrix();
-    }
-    addEventListener("resize", resize);
-    resize();
-    renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
   </script>
 </body>
 </html>
