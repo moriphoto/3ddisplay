@@ -5,20 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WEfold gallery</title>
   <style>
-    body { margin: 0; font-family: Helvetica, Arial, sans-serif; background: #f4f1ea; color: #1c1c1c; }
-    main { max-width: 880px; margin: 0 auto; padding: 28px 20px; }
-    h1 { font-size: 32px; margin: 0 0 8px; }
+    body { margin: 0; font-family: Helvetica, Arial, sans-serif; background: #f6f3ee; color: #1c1c1c; }
+    main { max-width: 980px; margin: 0 auto; padding: 40px 24px 64px; }
+    img { width: 148px; }
+    .eye { letter-spacing: 0.16em; font-size: 11px; color: #6d6a64; }
+    h1 { font-size: 40px; font-weight: 500; margin: 6px 0 8px; }
     p { color: #6d6a64; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; }
-    article { background: #fff; border: 1px solid #e4dfd6; border-radius: 16px; padding: 14px; }
-    a { color: #1c1c1c; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 28px; }
+    article { background: #fff; border: 1px solid #e4dfd6; border-radius: 18px; overflow: hidden; }
+    iframe { width: 100%; height: 220px; border: 0; background: #f7f5f0; }
+    div { padding: 14px 16px 16px; display: flex; justify-content: space-between; align-items: center; }
+    a { color: #1c1c1c; text-decoration: none; }
   </style>
 </head>
 <body>
   <main>
-    <p>WORLDENTIRE</p>
+    <img src="worldentire.png" alt="WorldEntire">
+    <p class="eye">WORLDENTIRE</p>
     <h1>Gallery</h1>
-    <p>Each saved version is a viewer. Open the link on any computer.</p>
+    <p>Saved WEfold 2.0 viewers. Open one on any computer.</p>
     <div class="grid" id="list"></div>
   </main>
   <script>
@@ -27,7 +32,7 @@
       if (!items.length) { list.innerHTML = "<p>No versions yet.</p>"; return; }
       items.forEach((item) => {
         const card = document.createElement("article");
-        card.innerHTML = "<strong>" + item.name + "</strong><br><a href='" + item.url + "'>Open viewer</a>";
+        card.innerHTML = "<iframe src='" + item.url + "' loading='lazy'></iframe><div><strong>" + item.name + "</strong><a href='" + item.url + "'>Open</a></div>";
         list.appendChild(card);
       });
     }).catch(() => { list.innerHTML = "<p>Gallery could not load.</p>"; });
