@@ -33,7 +33,7 @@
       items.forEach((item) => {
         const card = document.createElement("article");
         const src = "/.netlify/functions/gallery?id=" + encodeURIComponent(item.id);
-        card.innerHTML = "<iframe src='" + src + "' loading='lazy'></iframe><div><strong>" + item.name + "</strong><a href='" + src + "'>Open</a></div>";
+        card.innerHTML = "<a href='" + src + "'><iframe src='" + src + "' loading='lazy'></iframe><div><strong>" + item.name + "</strong><span>Open</span></div></a>";
         list.appendChild(card);
       });
     }).catch(() => { list.innerHTML = "<p>Gallery could not load.</p>"; });

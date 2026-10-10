@@ -1,1 +1,2 @@
-/g/:name  /.netlify/functions/gallery?id=:name  200
+/g/:name  /.netlify/functions/gallery?id=:name  200!
+/g/*  /.netlify/functions/gallery?id=:splat  200!
