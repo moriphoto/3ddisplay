@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WEfold gallery</title>
+  <style>
+    body { margin: 0; font-family: Helvetica, Arial, sans-serif; background: #f4f1ea; color: #1c1c1c; }
+    main { max-width: 880px; margin: 0 auto; padding: 28px 20px; }
+    h1 { font-size: 32px; margin: 0 0 8px; }
+    p { color: #6d6a64; }
+    button { font: inherit; padding: 8px 12px; border: 1px solid #e4dfd6; background: #fff; border-radius: 8px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; }
+    article { background: #fff; border: 1px solid #e4dfd6; border-radius: 16px; padding: 14px; }
+    iframe { width: 100%; height: 280px; border: 0; border-radius: 12px; background: #f7f5f0; }
+    a { color: #1c1c1c; }
+  </style>
+</head>
+<body>
+  <main>
+    <p>WORLDENTIRE</p>
+    <h1>Gallery</h1>
+    <p>Each board is its own viewer. Open the link to send it.</p>
+    <button id="delete" type="button">Delete ticked</button>
+    <div class="grid" id="list"></div>
+  </main>
+  <script>
+    const list = document.getElementById("list");
+    async function load() {
+      const items = await fetch("/.netlify/functions/gallery").then((r) => r.json());
+      list.innerHTML = "";
+      items.filter((item) => item.id !== "latest-sheets" && item.id !== "test-board").forEach((item) => {
+        const card = document.createElement("article");
+        card.innerHTML = "<label><input type='checkbox' value='" + item.id + "'> " + item.name + "</label><iframe src='/g/" + item.id + "'></iframe><a href='/g/" + item.id + "'>Open viewer</a>";
+        list.appendChild(card);
+      });
+      if (!list.children.length) list.innerHTML = "<p>No boards yet.</p>";
+    }
+    document.getElementById("delete").onclick = async () => {
+      const ids = [...document.querySelectorAll("input:checked")].map((box) => box.value);
+      if (!ids.length) return;
+      await fetch("/.netlify/functions/gallery", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids }) });
+      load();
+    };
+    load();
+  </script>
+</body>
+</html>
