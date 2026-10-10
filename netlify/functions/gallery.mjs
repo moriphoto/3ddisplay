@@ -8,10 +8,11 @@ async function store() {
 
 async function saveToGitHub(name, html) {
   const token = process.env.GITHUB_TOKEN;
-  if (!token) return false;
+  if (!token) return { ok: false, reason: "GITHUB_TOKEN is not available to the function." };
+  if (!token.startsWith("github_pat_") && !token.startsWith("ghp_")) return { ok: false, reason: "The value is not a GitHub token." };
   const path = `assets/gallery/${name}.html`;
   const api = `https://api.github.com/repos/${repo}/contents/${path}`;
-  const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" };
+  const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "wefold-gallery" };
   const existing = await fetch(api, { headers });
   const sha = existing.ok ? (await existing.json()).sha : undefined;
   const response = await fetch(api, {
@@ -24,7 +25,8 @@ async function saveToGitHub(name, html) {
       sha
     })
   });
-  return response.ok;
+  if (response.ok) return { ok: true };
+  return { ok: false, reason: "GitHub returned " + response.status + "." };
 }
 
 export default async (request) => {
@@ -52,7 +54,7 @@ export default async (request) => {
     const name = String(body.name || "WEfold-2.0").replace(/[^\w.-]+/g, "-");
     await blobs.set(name, body.html || "", { metadata: { name } });
     const github = await saveToGitHub(name, body.html || "");
-    return Response.json({ id: name, url: "/g/" + name, github, file: "assets/gallery/" + name + ".html" });
+    return Response.json({ id: name, url: "/g/" + name, github: github.ok, reason: github.reason || "", file: "assets/gallery/" + name + ".html" });
   }
 
   if (request.method === "DELETE") {
