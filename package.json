@@ -1,0 +1,7 @@
+{
+  "name": "wefold-viewer",
+  "private": true,
+  "scripts": {
+    "build": "echo ready"
+  }
+}
