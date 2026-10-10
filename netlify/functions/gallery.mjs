@@ -29,7 +29,17 @@ async function saveToGitHub(name, html) {
   return { ok: false, reason: "GitHub returned " + response.status + "." };
 }
 
-export default async (request) => {
+async function deleteFromGitHub(name) {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return;
+  const path = `assets/gallery/${name}.html`;
+  const api = `https://api.github.com/repos/${repo}/contents/${path}`;
+  const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "User-Agent": "wefold-gallery" };
+  const existing = await fetch(api, { headers });
+  if (!existing.ok) return;
+  const sha = (await existing.json()).sha;
+  await fetch(api, { method: "DELETE", headers, body: JSON.stringify({ message: `Remove ${name} from the gallery`, sha, branch: "main" }) });
+}
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   const blobs = await store();
@@ -59,7 +69,10 @@ export default async (request) => {
 
   if (request.method === "DELETE") {
     const body = await request.json();
-    for (const name of body.ids || []) await blobs.delete(String(name));
+    for (const name of body.ids || []) {
+      await blobs.delete(String(name));
+      await deleteFromGitHub(String(name));
+    }
     return Response.json({ ok: true });
   }
 

@@ -7,36 +7,48 @@
   <style>
     body { margin: 0; font-family: Helvetica, Arial, sans-serif; background: #f6f3ee; color: #1c1c1c; }
     main { max-width: 980px; margin: 0 auto; padding: 40px 24px 64px; }
-    img { width: 148px; }
+    img.mark { width: 148px; }
     .eye { letter-spacing: 0.16em; font-size: 11px; color: #6d6a64; }
     h1 { font-size: 40px; font-weight: 500; margin: 6px 0 8px; }
     p { color: #6d6a64; }
+    button { border: 0; background: #1c1c1c; color: #fff; border-radius: 999px; padding: 10px 16px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 28px; }
     article { background: #fff; border: 1px solid #e4dfd6; border-radius: 18px; overflow: hidden; }
-    iframe { width: 100%; height: 220px; border: 0; background: #f7f5f0; }
-    div { padding: 14px 16px 16px; display: flex; justify-content: space-between; align-items: center; }
-    a { color: #1c1c1c; text-decoration: none; }
+    iframe { width: 100%; height: 220px; border: 0; background: #f7f5f0; pointer-events: none; }
+    .row { padding: 14px 16px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    a, label { color: #1c1c1c; text-decoration: none; }
   </style>
 </head>
 <body>
   <main>
-    <img src="worldentire.png" alt="WorldEntire">
+    <img class="mark" src="worldentire.png" alt="WorldEntire">
     <p class="eye">WORLDENTIRE</p>
     <h1>Gallery</h1>
-    <p>Saved WEfold 2.0 viewers. Open one on any computer.</p>
+    <p>Saved WEfold 2.0 viewers. Tick the ones to remove.</p>
+    <button id="remove" type="button">Delete selected</button>
     <div class="grid" id="list"></div>
   </main>
   <script>
     const list = document.getElementById("list");
-    fetch("/.netlify/functions/gallery").then((r) => r.json()).then((items) => {
-      if (!items.length) { list.innerHTML = "<p>No versions yet.</p>"; return; }
-      items.forEach((item) => {
-        const card = document.createElement("article");
-        const src = "/.netlify/functions/gallery?id=" + encodeURIComponent(item.id);
-        card.innerHTML = "<a href='" + src + "'><iframe src='" + src + "' loading='lazy'></iframe><div><strong>" + item.name + "</strong><span>Open</span></div></a>";
-        list.appendChild(card);
-      });
-    }).catch(() => { list.innerHTML = "<p>Gallery could not load.</p>"; });
+    function load() {
+      list.innerHTML = "";
+      fetch("/.netlify/functions/gallery").then((r) => r.json()).then((items) => {
+        if (!items.length) { list.innerHTML = "<p>No versions yet.</p>"; return; }
+        items.forEach((item) => {
+          const card = document.createElement("article");
+          const src = "/.netlify/functions/gallery?id=" + encodeURIComponent(item.id);
+          card.innerHTML = "<iframe src='" + src + "' loading='lazy'></iframe><div class='row'><label><input type='checkbox' value='" + item.id + "'> " + item.name + "</label><a href='" + src + "'>Open</a></div>";
+          list.appendChild(card);
+        });
+      }).catch(() => { list.innerHTML = "<p>Gallery could not load.</p>"; });
+    }
+    document.getElementById("remove").onclick = async () => {
+      const ids = [...document.querySelectorAll("input:checked")].map((box) => box.value);
+      if (!ids.length) return;
+      await fetch("/.netlify/functions/gallery", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids }) });
+      load();
+    };
+    load();
   </script>
 </body>
 </html>
