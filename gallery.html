@@ -52,7 +52,7 @@
         });
       }).catch(() => { list.innerHTML = "<p>Gallery could not load.</p>"; });
       fetch("/.netlify/functions/gallery?shows=1").then((r) => r.json()).then((items) => {
-        shows.innerHTML = items.map((item) => "<a href='/.netlify/functions/gallery?id=" + encodeURIComponent(item.id) + "'>" + item.name + " slideshow</a>").join(" · ");
+        shows.innerHTML = items.map((item) => "<span><a href='/.netlify/functions/gallery?id=" + encodeURIComponent(item.id) + "'>" + item.name + " slideshow</a> <button class='quiet drop-show' data-id='" + item.id + "' type='button'>Delete</button></span>").join(" ");
       }).catch(() => {});
     }
     document.getElementById("make-show").onclick = async () => {
@@ -68,6 +68,12 @@
       const ids = [...document.querySelectorAll("input:checked")].map((box) => box.value);
       if (!ids.length) return;
       await fetch("/.netlify/functions/gallery", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids }) });
+      load();
+    };
+    shows.onclick = async (event) => {
+      const button = event.target.closest(".drop-show");
+      if (!button) return;
+      await fetch("/.netlify/functions/gallery", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: [button.dataset.id] }) });
       load();
     };
     load();
