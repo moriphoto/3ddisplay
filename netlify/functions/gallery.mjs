@@ -44,7 +44,7 @@ export default async (request) => {
   if (request.method === "GET") {
     const list = await blobs.list();
     const items = (list.blobs || [])
-      .filter((blob) => blob.key !== "latest-sheets" && blob.key !== "test-board")
+      .filter((blob) => !["latest-sheets", "test-board", "token-check"].includes(blob.key))
       .map((blob) => ({ id: blob.key, name: blob.key, url: "/g/" + blob.key }));
     return Response.json(items);
   }
@@ -54,7 +54,7 @@ export default async (request) => {
     const name = String(body.name || "WEfold-2.0").replace(/[^\w.-]+/g, "-");
     await blobs.set(name, body.html || "", { metadata: { name } });
     const github = await saveToGitHub(name, body.html || "");
-    return Response.json({ id: name, url: "/g/" + name, github: github.ok, reason: github.reason || "", file: "assets/gallery/" + name + ".html" });
+    return Response.json({ id: name, url: "/.netlify/functions/gallery?id=" + name, github: github.ok, reason: github.reason || "", file: "assets/gallery/" + name + ".html" });
   }
 
   if (request.method === "DELETE") {

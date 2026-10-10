@@ -32,7 +32,8 @@
       if (!items.length) { list.innerHTML = "<p>No versions yet.</p>"; return; }
       items.forEach((item) => {
         const card = document.createElement("article");
-        card.innerHTML = "<iframe src='" + item.url + "' loading='lazy'></iframe><div><strong>" + item.name + "</strong><a href='" + item.url + "'>Open</a></div>";
+        const src = "/.netlify/functions/gallery?id=" + encodeURIComponent(item.id);
+        card.innerHTML = "<iframe src='" + src + "' loading='lazy'></iframe><div><strong>" + item.name + "</strong><a href='" + src + "'>Open</a></div>";
         list.appendChild(card);
       });
     }).catch(() => { list.innerHTML = "<p>Gallery could not load.</p>"; });
