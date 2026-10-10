@@ -1,8 +1,30 @@
 const storeName = "wefold-gallery";
+const repo = "moriphoto/3ddisplay";
 
 async function store() {
   const { getStore } = await import("@netlify/blobs");
   return getStore(storeName);
+}
+
+async function saveToGitHub(name, html) {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return false;
+  const path = `assets/gallery/${name}.html`;
+  const api = `https://api.github.com/repos/${repo}/contents/${path}`;
+  const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" };
+  const existing = await fetch(api, { headers });
+  const sha = existing.ok ? (await existing.json()).sha : undefined;
+  const response = await fetch(api, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({
+      message: `Save ${name} to the gallery`,
+      content: btoa(unescape(encodeURIComponent(html))),
+      branch: "main",
+      sha
+    })
+  });
+  return response.ok;
 }
 
 export default async (request) => {
@@ -19,10 +41,9 @@ export default async (request) => {
 
   if (request.method === "GET") {
     const list = await blobs.list();
-    const items = await Promise.all((list.blobs || []).map(async (blob) => {
-      const meta = await blobs.getMetadata(blob.key);
-      return { id: blob.key, name: (meta && meta.metadata && meta.metadata.name) || blob.key, updated: blob.uploadedAt || "" };
-    }));
+    const items = (list.blobs || [])
+      .filter((blob) => blob.key !== "latest-sheets" && blob.key !== "test-board")
+      .map((blob) => ({ id: blob.key, name: blob.key, url: "/g/" + blob.key }));
     return Response.json(items);
   }
 
@@ -30,8 +51,8 @@ export default async (request) => {
     const body = await request.json();
     const name = String(body.name || "WEfold-2.0").replace(/[^\w.-]+/g, "-");
     await blobs.set(name, body.html || "", { metadata: { name } });
-    if (body.sheets) await blobs.set("latest-sheets", JSON.stringify(body.sheets), { metadata: { name: "latest-sheets" } });
-    return Response.json({ id: name, url: "/g/" + name });
+    const github = await saveToGitHub(name, body.html || "");
+    return Response.json({ id: name, url: "/g/" + name, github, file: "assets/gallery/" + name + ".html" });
   }
 
   if (request.method === "DELETE") {
