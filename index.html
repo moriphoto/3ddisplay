@@ -264,22 +264,21 @@
       if (win) { win.document.open(); win.document.write(page); win.document.close(); }
       status.textContent = "Saving " + name + ".";
       const response = await fetch("/.netlify/functions/gallery", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, html: page }) });
-      const versions = JSON.parse(localStorage.getItem("wefold-versions") || "[]");
       if (response.ok) {
         const result = await response.json();
-        versions.unshift({ name, url: result.url });
         status.textContent = "Saved. " + location.origin + result.url;
       } else {
-        versions.unshift({ name, url: "" });
         status.textContent = "Opened the version. Gallery save did not complete.";
       }
-      localStorage.setItem("wefold-versions", JSON.stringify(versions.slice(0, 12)));
       drawVersions();
     };
     function drawVersions() {
+      localStorage.removeItem("wefold-versions");
       const box = document.getElementById("versions");
-      const versions = JSON.parse(localStorage.getItem("wefold-versions") || "[]");
-      box.innerHTML = versions.map((item) => item.url ? "<a href='" + item.url + "' target='_blank'>" + item.name + "</a>" : item.name).join("<br>");
+      fetch("/.netlify/functions/gallery").then((r) => r.json()).then((items) => {
+        const seen = new Set();
+        box.innerHTML = items.filter((item) => seen.has(item.id) ? false : seen.add(item.id)).map((item) => "<a href='/.netlify/functions/gallery?id=" + encodeURIComponent(item.id) + "' target='_blank'>" + item.name + "</a>").join("");
+      }).catch(() => { box.innerHTML = ""; });
     }
     drawVersions();
     (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
