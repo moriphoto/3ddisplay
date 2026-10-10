@@ -40,6 +40,20 @@ async function deleteFromGitHub(name) {
   const sha = (await existing.json()).sha;
   await fetch(api, { method: "DELETE", headers, body: JSON.stringify({ message: `Remove ${name} from the gallery`, sha, branch: "main" }) });
 }
+function showPage(title, ids) {
+  const boards = JSON.stringify(ids);
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title>
+<style>body{margin:0;background:#f6f3ee;color:#1c1c1c;font-family:Helvetica,Arial,sans-serif}header{display:flex;justify-content:space-between;align-items:center;padding:16px 24px}p{margin:0;letter-spacing:.12em;font-size:12px;color:#6d6a64}button{border:0;background:#1c1c1c;color:#fff;border-radius:999px;padding:8px 14px}iframe{width:100%;height:calc(100vh - 64px);border:0;background:#f7f5f0}</style>
+</head><body><header><p>WORLDENTIRE · ${title}</p><div><button id="prev" type="button">Previous</button> <span id="count"></span> <button id="next" type="button">Next</button></div></header>
+<iframe id="frame"></iframe><script>
+const boards=${boards};let i=0;
+function show(){document.getElementById("frame").src="/.netlify/functions/gallery?id="+encodeURIComponent(boards[i]);document.getElementById("count").textContent=(i+1)+" / "+boards.length;}
+document.getElementById("prev").onclick=()=>{i=(i-1+boards.length)%boards.length;show();};
+document.getElementById("next").onclick=()=>{i=(i+1)%boards.length;show();};
+addEventListener("keydown",(e)=>{if(e.key==="ArrowRight")document.getElementById("next").click();if(e.key==="ArrowLeft")document.getElementById("prev").click();});
+show();
+</script></body></html>`;
+}
 export default async (request) => {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
@@ -52,16 +66,30 @@ export default async (request) => {
     return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
   }
 
+  if (request.method === "GET" && url.searchParams.get("shows") === "1") {
+    const list = await blobs.list();
+    const items = (list.blobs || []).filter((blob) => blob.key.startsWith("show-")).map((blob) => ({ id: blob.key, name: blob.key.replace(/^show-/, "") }));
+    return Response.json(items);
+  }
+
   if (request.method === "GET") {
     const list = await blobs.list();
     const items = (list.blobs || [])
-      .filter((blob) => !["latest-sheets", "test-board", "token-check"].includes(blob.key))
+      .filter((blob) => !["latest-sheets", "test-board", "token-check"].includes(blob.key) && !blob.key.startsWith("show-"))
       .map((blob) => ({ id: blob.key, name: blob.key, url: "/g/" + blob.key }));
     return Response.json(items);
   }
 
   if (request.method === "POST") {
     const body = await request.json();
+    if (body.type === "slideshow") {
+      const title = String(body.name || "Show").replace(/[^\w .-]+/g, "").trim() || "Show";
+      const id = "show-" + title.replace(/[^\w.-]+/g, "-");
+      const html = showPage(title, body.ids || []);
+      await blobs.set(id, html, { metadata: { name: title } });
+      const github = await saveToGitHub(id, html);
+      return Response.json({ id, url: "/.netlify/functions/gallery?id=" + id, github: github.ok });
+    }
     const name = String(body.name || "WEfold-2.0").replace(/[^\w.-]+/g, "-");
     await blobs.set(name, body.html || "", { metadata: { name } });
     const github = await saveToGitHub(name, body.html || "");
