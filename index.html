@@ -59,7 +59,17 @@
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.target.set(-0.25, 0.9, 0.25);
     controls.enableDamping = true;
-    controls.maxPolarAngle = Math.PI / 2 + 0.01;
+    const start = camera.position.clone().sub(controls.target);
+    const dist = start.length();
+    const az = Math.atan2(start.x, start.z);
+    controls.minDistance = dist * 0.65;
+    controls.maxDistance = dist * 1.35;
+    controls.minPolarAngle = Math.PI / 6;
+    controls.maxPolarAngle = Math.PI / 2;
+    controls.minAzimuthAngle = az - Math.PI / 2;
+    controls.maxAzimuthAngle = az + Math.PI / 2;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.6;
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), new THREE.ShadowMaterial({ opacity: 0.06 }));
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
@@ -233,6 +243,9 @@
         + "const view=document.getElementById('view');const camera=new THREE.PerspectiveCamera(38,view.clientWidth/view.clientHeight,0.1,100);camera.position.set(1.8,1.3,-2.6);"
         + "const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(view.clientWidth,view.clientHeight);renderer.shadowMap.enabled=true;renderer.outputEncoding=THREE.sRGBEncoding;view.appendChild(renderer.domElement);"
         + "const controls=new THREE.OrbitControls(camera,renderer.domElement);controls.target.set(-0.25,0.9,0.25);controls.enableDamping=true;"
+        + "const start=camera.position.clone().sub(controls.target);const dist=start.length();const az=Math.atan2(start.x,start.z);"
+        + "controls.minDistance=dist*0.65;controls.maxDistance=dist*1.35;controls.minPolarAngle=Math.PI/6;controls.maxPolarAngle=Math.PI/2;"
+        + "controls.minAzimuthAngle=az-Math.PI/2;controls.maxAzimuthAngle=az+Math.PI/2;controls.autoRotate=true;controls.autoRotateSpeed=0.6;"
         + "const floor=new THREE.Mesh(new THREE.PlaneGeometry(50,50),new THREE.ShadowMaterial({opacity:0.06}));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);"
         + "scene.add(new THREE.AmbientLight(0xffffff,0.82));const key=new THREE.DirectionalLight(0xffffff,0.55);key.position.set(3,5,-4);key.castShadow=true;scene.add(key);const fill=new THREE.DirectionalLight(0xffffff,0.35);fill.position.set(-4,3.5,2);scene.add(fill);"
         + "const thickness=0.005,panelWidth=0.61,panelHeight=2;"
