@@ -40,6 +40,7 @@ async function deleteFromGitHub(name) {
   const sha = (await existing.json()).sha;
   await fetch(api, { method: "DELETE", headers, body: JSON.stringify({ message: `Remove ${name} from the gallery`, sha, branch: "main" }) });
 }
+export default async (request) => {
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   const blobs = await store();
