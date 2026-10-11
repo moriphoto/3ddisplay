@@ -1,1 +1,347 @@
-PLACEHOLDER
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WEfold</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: Helvetica, Arial, sans-serif; background: #f6f3ee; color: #1c1c1c; }
+    #view { width: 100vw; height: 100vh; }
+    #panel {
+      position: absolute; top: 20px; left: 20px; width: 280px; z-index: 2;
+      background: rgba(255,255,255,0.92); border: 1px solid rgba(28,28,28,0.06);
+      border-radius: 18px; padding: 22px; box-shadow: 0 16px 40px rgba(28,28,28,0.08);
+      backdrop-filter: blur(16px);
+    }
+    .mark { width: 132px; display: block; margin-bottom: 18px; }
+    .eyebrow { margin: 0 0 4px; font-size: 11px; letter-spacing: 0.16em; color: #6d6a64; }
+    h1 { margin: 0 0 8px; font-size: 22px; font-weight: 500; }
+    p { margin: 0 0 14px; font-size: 12px; color: #6d6a64; line-height: 1.45; }
+    label { display: block; font-size: 11px; letter-spacing: 0.04em; color: #6d6a64; margin: 10px 0 5px; }
+    input, button { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; }
+    input { padding: 8px 10px; border: 1px solid #e4dfd6; border-radius: 10px; background: #fff; }
+    button { margin-top: 14px; padding: 10px; border: 0; background: #1c1c1c; color: #fff; border-radius: 999px; cursor: pointer; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .row button { margin-top: 0; background: #fff; color: #1c1c1c; border: 1px solid #e4dfd6; }
+    .row button.active { background: #1c1c1c; color: #fff; border-color: #1c1c1c; }
+    #versions a { display: block; margin-top: 8px; color: #1c1c1c; font-size: 12px; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+  <div id="panel">
+    <img class="mark" src="worldentire.png" alt="WorldEntire">
+    <p class="eyebrow">WORLDENTIRE</p>
+    <h1 id="title">WEfold 2.0</h1>
+    <p id="desc">Front sheet on both front faces. Inside sheet on both inside faces. Bottom 530 mm on the foot.</p>
+    <label>Size</label>
+    <div class="row">
+      <button type="button" id="size-20" class="active">2.0 m</button>
+      <button type="button" id="size-24">2.4 m</button>
+    </div>
+    <label for="upload-a">Front sheet</label>
+    <input id="upload-a" type="file" accept="image/png,image/jpeg,application/pdf">
+    <label for="upload-b">Inside sheet</label>
+    <input id="upload-b" type="file" accept="image/png,image/jpeg,application/pdf">
+    <label for="job">Name</label>
+    <input id="job" type="text" placeholder="CPI-2000" />
+    <button id="save" type="button">Save version</button>
+    <button id="share" type="button" style="background:#fff;color:#1c1c1c;border:1px solid #e4dfd6;margin-top:8px;">Share link</button>
+    <p id="versions"></p>
+    <p id="status">Drag to spin.</p>
+  </div>
+  <div id="view"></div>
+  <script>
+    const SIZES = {
+      "2.0": { label: "WEfold 2.0", panelWidth: 0.61, panelHeight: 2.0, thickness: 0.005, mainMm: 2000, footerMm: 530, sheetMm: 2530, weight: "2.6 kg", print: "5.6 m²" },
+      "2.4": { label: "WEfold 2.4", panelWidth: 0.762, panelHeight: 2.4, thickness: 0.005, mainMm: 2400, footerMm: 564, sheetMm: 2964, weight: "—", print: "—" }
+    };
+    let currentSize = "2.0";
+    let lastSavedUrl = "";
+
+    const status = document.getElementById("status");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf6f3ee);
+    const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 100);
+    camera.position.set(1.8, 1.3, -2.6);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setClearColor(0xf6f3ee, 1);
+    renderer.shadowMap.enabled = true;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    document.getElementById("view").appendChild(renderer.domElement);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(-0.25, 0.9, 0.25);
+    controls.enableDamping = true;
+    const start = camera.position.clone().sub(controls.target);
+    const dist = start.length();
+    controls.minDistance = dist * 0.65;
+    controls.maxDistance = dist * 1.35;
+    controls.minPolarAngle = Math.PI / 6;
+    controls.maxPolarAngle = Math.PI / 2;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.6;
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), new THREE.ShadowMaterial({ opacity: 0.06 }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.82));
+    const key = new THREE.DirectionalLight(0xffffff, 0.55);
+    key.position.set(3, 5, -4);
+    key.castShadow = true;
+    scene.add(key);
+    scene.add(new THREE.DirectionalLight(0xffffff, 0.35).translateX(-4).translateY(3.5).translateZ(2));
+
+    const matEdge = new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.5 });
+    const matLeftFront = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.28, metalness: 0.01 });
+    const matRightFront = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.28, metalness: 0.01 });
+    const matUnderFoot = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35 });
+    const matLeftBack = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35 });
+    const matRightBack = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35 });
+    const matOverFoot = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.35 });
+    const display = new THREE.Group();
+    scene.add(display);
+    const saved = { front: null, inside: null, size: "2.0" };
+
+    function setPanelUVs(geometry, isRight, w, h) {
+      const uv = geometry.attributes.uv, pos = geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const v = (pos.getY(i) + h / 2) / h;
+        const u = isRight ? (pos.getZ(i) + w / 2) / w : (pos.getX(i) + w / 2) / w;
+        uv.setXY(i, u, v);
+      }
+    }
+    function setFootUVs(geometry, w) {
+      const uv = geometry.attributes.uv, pos = geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) uv.setXY(i, (pos.getX(i) + w) / w, 1 - (pos.getY(i) / w));
+    }
+    function rebuild() {
+      const s = SIZES[currentSize];
+      const w = s.panelWidth, h = s.panelHeight, t = s.thickness;
+      while (display.children.length) {
+        const c = display.children[0];
+        display.remove(c);
+        if (c.geometry) c.geometry.dispose();
+      }
+      const leftGeo = new THREE.BoxGeometry(w, h, t);
+      setPanelUVs(leftGeo, false, w, h);
+      const leftPanel = new THREE.Mesh(leftGeo, [matEdge, matEdge, matEdge, matEdge, matLeftBack, matLeftFront]);
+      leftPanel.position.set(-w / 2, h / 2 + t * 2, 0);
+      leftPanel.castShadow = true;
+      const rightGeo = new THREE.BoxGeometry(t, h, w);
+      setPanelUVs(rightGeo, true, w, h);
+      const rightPanel = new THREE.Mesh(rightGeo, [matRightFront, matRightBack, matEdge, matEdge, matEdge, matEdge]);
+      rightPanel.position.set(0, h / 2 + t * 2, w / 2);
+      rightPanel.castShadow = true;
+      const footShape = new THREE.Shape();
+      footShape.moveTo(0, 0);
+      footShape.lineTo(-w, 0);
+      footShape.absarc(0, 0, w, Math.PI, Math.PI / 2, true);
+      const footGeo = new THREE.ExtrudeGeometry(footShape, { depth: t, bevelEnabled: false });
+      setFootUVs(footGeo, w);
+      const underFoot = new THREE.Mesh(footGeo, [matUnderFoot, matEdge]);
+      underFoot.rotation.x = Math.PI / 2;
+      underFoot.position.set(0, t, 0);
+      const overFoot = new THREE.Mesh(footGeo, [matOverFoot, matEdge]);
+      overFoot.rotation.x = Math.PI / 2;
+      overFoot.position.set(0, t * 2, 0);
+      display.add(leftPanel, rightPanel, underFoot, overFoot);
+      document.getElementById("title").textContent = s.label;
+      document.getElementById("desc").textContent = "Front sheet on both front faces. Inside sheet on both inside faces. Bottom " + s.footerMm + " mm on the foot.";
+      document.getElementById("size-20").classList.toggle("active", currentSize === "2.0");
+      document.getElementById("size-24").classList.toggle("active", currentSize === "2.4");
+      saved.size = currentSize;
+    }
+
+    function textureFrom(canvas, mirror) {
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.encoding = THREE.sRGBEncoding;
+      if (mirror) { tex.wrapS = THREE.RepeatWrapping; tex.repeat.x = -1; tex.offset.x = 1; }
+      return tex;
+    }
+    function crop(img, sx, sy, sw, sh) {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(2, sw); canvas.height = Math.max(2, sh);
+      canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      return canvas;
+    }
+    function place(img, isFront) {
+      const s = SIZES[currentSize];
+      const MAIN = s.mainMm / s.sheetMm, FOOT = s.footerMm / s.sheetMm;
+      const w = img.width, h = img.height;
+      const left = crop(img, 0, 0, w * 0.5, h * MAIN);
+      const right = crop(img, w * 0.5, 0, w * 0.5, h * MAIN);
+      const footer = crop(img, 0, h * MAIN, w, h * FOOT);
+      if (isFront) {
+        matLeftFront.map = textureFrom(right, true);
+        matRightFront.map = textureFrom(left, true);
+        matUnderFoot.map = textureFrom(footer, false);
+        matLeftFront.needsUpdate = matRightFront.needsUpdate = matUnderFoot.needsUpdate = true;
+        saved.front = { left: jpeg(left), right: jpeg(right), foot: jpeg(footer) };
+        remember();
+        status.textContent = "Front sheet is on both front faces.";
+      } else {
+        matLeftBack.map = textureFrom(left, false);
+        matRightBack.map = textureFrom(right, false);
+        matOverFoot.map = textureFrom(footer, false);
+        matLeftBack.needsUpdate = matRightBack.needsUpdate = matOverFoot.needsUpdate = true;
+        saved.inside = { left: jpeg(left), right: jpeg(right), foot: jpeg(footer) };
+        remember();
+        status.textContent = "Inside sheet is on both inside faces.";
+      }
+    }
+    function read(file, isFront) {
+      status.textContent = "Reading the sheet.";
+      const go = (img) => place(img, isFront);
+      if (file.type === "application/pdf") {
+        const reader = new FileReader();
+        reader.onload = () => import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs").then((pdfjs) => {
+          pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
+          return pdfjs.getDocument({ data: reader.result }).promise;
+        }).then((pdf) => pdf.getPage(1)).then((page) => {
+          const view = page.getViewport({ scale: 1.4 });
+          const canvas = document.createElement("canvas");
+          canvas.width = view.width; canvas.height = view.height;
+          return page.render({ canvasContext: canvas.getContext("2d"), viewport: view }).promise.then(() => go(canvas));
+        }).catch(() => { status.textContent = "That PDF could not be read."; });
+        reader.readAsArrayBuffer(file);
+        return;
+      }
+      const img = new Image();
+      img.onload = () => go(img);
+      img.src = URL.createObjectURL(file);
+    }
+    function jpeg(canvas) {
+      const out = document.createElement("canvas");
+      const scale = Math.min(1, 1200 / canvas.width);
+      out.width = Math.max(2, Math.round(canvas.width * scale));
+      out.height = Math.max(2, Math.round(canvas.height * scale));
+      out.getContext("2d").drawImage(canvas, 0, 0, out.width, out.height);
+      return out.toDataURL("image/jpeg", 0.72);
+    }
+    function remember() { localStorage.setItem("wefold-last", JSON.stringify(saved)); }
+    function texUrl(url, mirror) {
+      if (!url) return null;
+      const tex = new THREE.TextureLoader().load(url);
+      tex.encoding = THREE.sRGBEncoding;
+      if (mirror) { tex.wrapS = THREE.RepeatWrapping; tex.repeat.x = -1; tex.offset.x = 1; }
+      return tex;
+    }
+    function showSaved(data) {
+      if (!data) return;
+      if (data.size && SIZES[data.size]) { currentSize = data.size; rebuild(); }
+      if (data.front) {
+        matLeftFront.map = texUrl(data.front.right, true);
+        matRightFront.map = texUrl(data.front.left, true);
+        matUnderFoot.map = texUrl(data.front.foot, false);
+        matLeftFront.needsUpdate = matRightFront.needsUpdate = matUnderFoot.needsUpdate = true;
+      }
+      if (data.inside) {
+        matLeftBack.map = texUrl(data.inside.left, false);
+        matRightBack.map = texUrl(data.inside.right, false);
+        matOverFoot.map = texUrl(data.inside.foot, false);
+        matLeftBack.needsUpdate = matRightBack.needsUpdate = matOverFoot.needsUpdate = true;
+      }
+      saved.front = data.front || saved.front;
+      saved.inside = data.inside || saved.inside;
+    }
+    try { showSaved(JSON.parse(localStorage.getItem("wefold-last") || "null")); } catch (e) {}
+    fetch("/.netlify/functions/gallery?id=latest-sheets").then((r) => r.json()).then(showSaved).catch(() => {});
+    document.getElementById("upload-a").onchange = (e) => e.target.files[0] && read(e.target.files[0], true);
+    document.getElementById("upload-b").onchange = (e) => e.target.files[0] && read(e.target.files[0], false);
+    document.getElementById("size-20").onclick = () => { currentSize = "2.0"; rebuild(); };
+    document.getElementById("size-24").onclick = () => { currentSize = "2.4"; rebuild(); };
+
+    async function buildPage(name) {
+      const s = SIZES[currentSize];
+      const logo = await fetch("worldentire.png").then((r) => r.blob()).then((blob) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      })).catch(() => "");
+      const ogImage = (saved.front && saved.front.left) || logo;
+      const title = name || s.label;
+      const desc = s.label + " · " + s.panelHeight + " m · Two faces. One curved foot.";
+      return "<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>" + title + "</title>"
+        + "<meta property='og:title' content='" + title + "'>"
+        + "<meta property='og:description' content='" + desc + "'>"
+        + "<meta property='og:image' content='" + ogImage + "'>"
+        + "<meta property='og:type' content='website'>"
+        + "<meta name='twitter:card' content='summary_large_image'>"
+        + "<script src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'></scr" + "ipt>"
+        + "<script src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'></scr" + "ipt>"
+        + "<style>body{margin:0;background:#f4f1ea;font-family:Helvetica,Arial,sans-serif;color:#1c1c1c}main{display:grid;grid-template-columns:280px 1fr;min-height:100vh}aside{padding:28px}img{width:150px}h1{font-size:32px;margin:18px 0 8px}p{color:#6d6a64;line-height:1.4}ul{list-style:none;padding:0}li{margin:10px 0}li span{display:block;color:#6d6a64;font-size:12px}#view{height:100vh;background:#f7f5f0}@media(max-width:700px){main{grid-template-columns:1fr}#view{height:70vh}}</style>"
+        + "</head><body><main><aside><img src='" + logo + "' alt='WorldEntire'><h1>" + title + "</h1><p>" + s.label + "</p>"
+        + "<ul><li><strong>" + s.panelHeight + " m</strong><span>Deployed height</span></li><li><strong>5 mm</strong><span>Board thickness</span></li><li><strong>" + s.footerMm + " mm</strong><span>Footer on the foot</span></li></ul>"
+        + "<p>Two faces. One curved foot. No frame.</p></aside><div id='view'></div></main><script>"
+        + "const saved=" + JSON.stringify(saved) + ";"
+        + "const scene=new THREE.Scene();scene.background=new THREE.Color(0xf7f5f0);"
+        + "const view=document.getElementById('view');const camera=new THREE.PerspectiveCamera(38,view.clientWidth/view.clientHeight,0.1,100);camera.position.set(1.8,1.3,-2.6);"
+        + "const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(view.clientWidth,view.clientHeight);renderer.shadowMap.enabled=true;renderer.outputEncoding=THREE.sRGBEncoding;view.appendChild(renderer.domElement);"
+        + "const controls=new THREE.OrbitControls(camera,renderer.domElement);controls.target.set(-0.25,0.9,0.25);controls.enableDamping=true;"
+        + "scene.add(new THREE.AmbientLight(0xffffff,0.82));const key=new THREE.DirectionalLight(0xffffff,0.55);key.position.set(3,5,-4);scene.add(key);"
+        + "const w=" + s.panelWidth + ",h=" + s.panelHeight + ",t=0.005;"
+        + "function tex(url,mirror){if(!url)return null;const t=new THREE.TextureLoader().load(url);t.encoding=THREE.sRGBEncoding;if(mirror){t.wrapS=THREE.RepeatWrapping;t.repeat.x=-1;t.offset.x=1;}return t;}"
+        + "const LF=new THREE.MeshStandardMaterial({map:tex(saved.front&&saved.front.left,false),roughness:0.28});"
+        + "const RF=new THREE.MeshStandardMaterial({map:tex(saved.front&&saved.front.right,false),roughness:0.28});"
+        + "const LB=new THREE.MeshStandardMaterial({map:tex(saved.inside&&saved.inside.left,false),roughness:0.35});"
+        + "const RB=new THREE.MeshStandardMaterial({map:tex(saved.inside&&saved.inside.right,false),roughness:0.35});"
+        + "const UF=new THREE.MeshStandardMaterial({map:tex(saved.front&&saved.front.foot,false),roughness:0.35});"
+        + "const OF=new THREE.MeshStandardMaterial({map:tex(saved.inside&&saved.inside.foot,false),roughness:0.35});"
+        + "const edge=new THREE.MeshStandardMaterial({color:0xf5f5f5,roughness:0.5});"
+        + "const left=new THREE.Mesh(new THREE.BoxGeometry(w,h,t),[edge,edge,edge,edge,LB,LF]);left.position.set(-w/2,h/2+t*2,0);left.castShadow=true;"
+        + "const right=new THREE.Mesh(new THREE.BoxGeometry(t,h,w),[RF,RB,edge,edge,edge,edge]);right.position.set(0,h/2+t*2,w/2);right.castShadow=true;"
+        + "const shape=new THREE.Shape();shape.moveTo(0,0);shape.lineTo(-w,0);shape.absarc(0,0,w,Math.PI,Math.PI/2,true);"
+        + "const footGeo=new THREE.ExtrudeGeometry(shape,{depth:t,bevelEnabled:false});"
+        + "const under=new THREE.Mesh(footGeo,[UF,edge]);under.rotation.x=Math.PI/2;under.position.set(0,t,0);"
+        + "const over=new THREE.Mesh(footGeo,[OF,edge]);over.rotation.x=Math.PI/2;over.position.set(0,t*2,0);"
+        + "scene.add(left,right,under,over);(function loop(){requestAnimationFrame(loop);controls.update();renderer.render(scene,camera);})();"
+        + "</scr" + "ipt></body></html>";
+    }
+
+    document.getElementById("save").onclick = async () => {
+      const name = (document.getElementById("job").value || "WEfold-" + currentSize).replace(/[^\w.-]+/g, "-");
+      const page = await buildPage(name);
+      const win = window.open("", "_blank");
+      if (win) { win.document.open(); win.document.write(page); win.document.close(); }
+      status.textContent = "Saving " + name + ".";
+      const response = await fetch("/.netlify/functions/gallery", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, html: page, size: currentSize }) });
+      if (response.ok) {
+        const result = await response.json();
+        lastSavedUrl = location.origin + result.url;
+        status.textContent = "Saved. " + lastSavedUrl;
+      } else {
+        status.textContent = "Opened the version. Gallery save did not complete.";
+      }
+      drawVersions();
+    };
+
+    document.getElementById("share").onclick = async () => {
+      const name = document.getElementById("job").value.trim() || SIZES[currentSize].label;
+      const url = lastSavedUrl || location.href;
+      const text = name + " — " + SIZES[currentSize].label;
+      if (navigator.share) {
+        try { await navigator.share({ title: name, text, url }); status.textContent = "Shared."; }
+        catch (e) { status.textContent = "Share cancelled."; }
+      } else {
+        await navigator.clipboard.writeText(url);
+        status.textContent = "Link copied: " + url;
+      }
+    };
+
+    function drawVersions() {
+      const box = document.getElementById("versions");
+      fetch("/.netlify/functions/gallery").then((r) => r.json()).then((items) => {
+        const seen = new Set();
+        box.innerHTML = items.filter((item) => seen.has(item.id) ? false : seen.add(item.id)).map((item) => "<a href='/.netlify/functions/gallery?id=" + encodeURIComponent(item.id) + "' target='_blank'>" + item.name + "</a>").join("");
+      }).catch(() => { box.innerHTML = ""; });
+    }
+    drawVersions();
+    rebuild();
+    (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+    addEventListener("resize", () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+  </script>
+</body>
+</html>
