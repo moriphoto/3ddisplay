@@ -1,1 +1,140 @@
-PLACEHOLDER
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WEfold gallery</title>
+  <style>
+    body { margin: 0; font-family: Helvetica, Arial, sans-serif; background: #f6f3ee; color: #1c1c1c; }
+    main { max-width: 980px; margin: 0 auto; padding: 40px 24px 64px; }
+    img.mark { width: 148px; }
+    .eye { letter-spacing: 0.16em; font-size: 11px; color: #6d6a64; }
+    h1 { font-size: 40px; font-weight: 500; margin: 6px 0 8px; }
+    p { color: #6d6a64; }
+    .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    input[type="text"] { padding: 10px 12px; border: 1px solid #e4dfd6; border-radius: 999px; font: inherit; }
+    button { border: 0; background: #1c1c1c; color: #fff; border-radius: 999px; padding: 10px 16px; cursor: pointer; font: inherit; }
+    button.quiet { background: #fff; color: #1c1c1c; border: 1px solid #e4dfd6; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 28px; }
+    article { background: #fff; border: 1px solid #e4dfd6; border-radius: 18px; overflow: hidden; }
+    iframe { width: 100%; height: 220px; border: 0; background: #f7f5f0; pointer-events: none; }
+    .row { padding: 14px 16px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    a, label { color: #1c1c1c; text-decoration: none; }
+    #shows { margin-top: 18px; }
+    #shows a { display: inline-block; margin: 6px 8px 0 0; padding: 6px 12px; background: #fff; border: 1px solid #e4dfd6; border-radius: 999px; font-size: 13px; }
+    .filters { display: flex; gap: 8px; margin-top: 16px; }
+    .filters button { padding: 6px 12px; font-size: 12px; }
+    .filters button.active { background: #1c1c1c; color: #fff; }
+  </style>
+</head>
+<body>
+  <main>
+    <img class="mark" src="worldentire.png" alt="WorldEntire">
+    <p class="eye">WORLDENTIRE</p>
+    <h1>Gallery</h1>
+    <p>Tick the boards for a client set, name it, and save a slideshow link.</p>
+    <div class="filters">
+      <button type="button" id="filter-all" class="active">All</button>
+      <button type="button" id="filter-20">2.0</button>
+      <button type="button" id="filter-24">2.4</button>
+    </div>
+    <div class="actions">
+      <input id="show-name" type="text" placeholder="Wallace">
+      <button id="make-show" type="button">Save slideshow</button>
+      <button id="remove" class="quiet" type="button">Delete selected</button>
+    </div>
+    <p id="show-status"></p>
+    <div id="shows"></div>
+    <div class="grid" id="list"></div>
+  </main>
+  <script>
+    const list = document.getElementById("list");
+    const status = document.getElementById("show-status");
+    const showsBox = document.getElementById("shows");
+    let allBoards = [];
+    let filter = "all";
+
+    function render(items) {
+      list.innerHTML = items.map((item) => `
+        <article>
+          <iframe src="/.netlify/functions/gallery?id=${encodeURIComponent(item.id)}"></iframe>
+          <div class="row">
+            <label><input type="checkbox" value="${item.id}"> ${item.name}</label>
+            <a href="/.netlify/functions/gallery?id=${encodeURIComponent(item.id)}" target="_blank">Open</a>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function applyFilter() {
+      const filtered = filter === "all" ? allBoards : allBoards.filter((b) => (b.size || "2.0") === filter);
+      render(filtered);
+      document.getElementById("filter-all").classList.toggle("active", filter === "all");
+      document.getElementById("filter-20").classList.toggle("active", filter === "2.0");
+      document.getElementById("filter-24").classList.toggle("active", filter === "2.4");
+    }
+
+    async function loadBoards() {
+      try {
+        const res = await fetch("/.netlify/functions/gallery");
+        allBoards = await res.json();
+        applyFilter();
+      } catch (e) {
+        status.textContent = "Could not load boards.";
+      }
+    }
+
+    async function loadShows() {
+      try {
+        const res = await fetch("/.netlify/functions/gallery?shows=1");
+        const shows = await res.json();
+        showsBox.innerHTML = shows.map((s) => `<a href="/.netlify/functions/gallery?id=${encodeURIComponent(s.id)}" target="_blank">${s.name}</a>`).join("");
+      } catch (e) {}
+    }
+
+    document.getElementById("filter-all").onclick = () => { filter = "all"; applyFilter(); };
+    document.getElementById("filter-20").onclick = () => { filter = "2.0"; applyFilter(); };
+    document.getElementById("filter-24").onclick = () => { filter = "2.4"; applyFilter(); };
+
+    document.getElementById("make-show").onclick = async () => {
+      const name = document.getElementById("show-name").value.trim() || "Show";
+      const ids = [...list.querySelectorAll("input:checked")].map((el) => el.value);
+      if (!ids.length) { status.textContent = "Tick at least one board."; return; }
+      status.textContent = "Saving slideshow…";
+      const res = await fetch("/.netlify/functions/gallery", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: "slideshow", name, ids })
+      });
+      if (res.ok) {
+        const result = await res.json();
+        status.textContent = "Saved. " + location.origin + result.url;
+        loadShows();
+      } else {
+        status.textContent = "Save did not complete.";
+      }
+    };
+
+    document.getElementById("remove").onclick = async () => {
+      const ids = [...list.querySelectorAll("input:checked")].map((el) => el.value);
+      if (!ids.length) { status.textContent = "Tick boards to delete."; return; }
+      if (!confirm("Delete " + ids.length + " board" + (ids.length > 1 ? "s" : "") + "?")) return;
+      status.textContent = "Deleting…";
+      const res = await fetch("/.netlify/functions/gallery", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ids })
+      });
+      if (res.ok) {
+        status.textContent = "Deleted.";
+        loadBoards();
+      } else {
+        status.textContent = "Delete did not complete.";
+      }
+    };
+
+    loadBoards();
+    loadShows();
+  </script>
+</body>
+</html>
